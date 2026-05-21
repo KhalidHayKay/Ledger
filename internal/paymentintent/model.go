@@ -2,14 +2,23 @@ package paymentintent
 
 import "time"
 
+const (
+	PaymentStatusPending    string = "pending"
+	PaymentStatusAuthorized string = "authorized"
+	PaymentStatusCaptured   string = "captured"
+	PaymentStatusRefunded   string = "refunded"
+	PaymentStatusVoided     string = "voided"
+)
+
 type PaymentIntent struct {
-	Id               string
-	PaymentReference string
-	OrderId          string
-	CustomerId       string
-	Amount           int
-	Currency         string
-	Status           string
-	CreatedAt        *time.Time
-	UpdatedAt        time.Time
+	Id               string    `json:"id"`
+	ClientId         string    `json:"client_id"`
+	PaymentReference string    `json:"payment_reference"`
+	Amount           int       `json:"amount"`
+	Currency         string    `json:"currency"`
+	OrderId          string    `json:"order_id"`
+	Status           string    `json:"status"`
+	CustomerId       string    `json:"customer_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }

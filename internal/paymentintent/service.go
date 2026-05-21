@@ -3,7 +3,6 @@ package paymentintent
 import (
 	"context"
 	"ledger/internal/bank"
-	"log"
 )
 
 type Service struct {
@@ -16,7 +15,7 @@ func NewService(repo Repository, bankRepo bank.Repository) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (PaymentIntent, error) {
-	body, err := s.bankRepo.Authorize(
+	payment, err := s.bankRepo.Authorize(
 		ctx,
 		bank.AuthorizeInput{
 			Card: bank.Card{
@@ -38,7 +37,12 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (PaymentIntent,
 		return PaymentIntent{}, err
 	}
 
-	log.Println(body)
+	paymentIntent, err := s.repo.Create(
+		ctx, payment.Id, input.Amount.Figure, input.Amount.Currency, input.OrderId, input.CustomerId,
+	)
+	if err != nil {
+		return PaymentIntent{}, err
+	}
 
-	return s.repo.Create(ctx, input.Amount.Figure, input.Amount.Currency, input.OrderId, input.CustomerId), nil
+	return paymentIntent, nil
 }
