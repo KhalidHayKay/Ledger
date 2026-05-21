@@ -1,0 +1,97 @@
+package config
+
+import (
+	"fmt"
+	"log"
+	"net/url"
+	"os"
+
+	"github.com/joho/godotenv"
+)
+
+type AppConfig struct {
+	Name        string
+	version     string
+	Environment string
+	Port        string
+	Url         string
+}
+
+type RedisConfig struct {
+	Url      string
+	Password string
+}
+
+type DBConfig struct {
+	url string
+
+	Connection string
+	Host       string
+	Port       string
+	Database   string
+	Username   string
+	Password   string
+}
+
+func (db DBConfig) URL() string {
+	if db.url != "" {
+		return db.url
+	}
+
+	u := url.URL{
+		Scheme: db.Connection,
+		User:   url.UserPassword(db.Username, db.Password),
+		Host:   fmt.Sprintf("%s:%s", db.Host, db.Port),
+		Path:   db.Database,
+	}
+
+	return u.String()
+}
+
+type EnvType struct {
+	App AppConfig
+
+	DB DBConfig
+
+	Redis RedisConfig
+
+	BankAPIBaseURL string
+}
+
+var Env *EnvType
+
+func LoadEnv() error {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println(err)
+	}
+
+	Env = &EnvType{
+		App: AppConfig{
+			Name:        os.Getenv("APP_NAME"),
+			Environment: os.Getenv("APP_ENV"),
+			Port:        os.Getenv("APP_PORT"),
+			Url:         os.Getenv("APP_URL"),
+		},
+
+		DB: DBConfig{
+			url: os.Getenv("DB_URL"),
+
+			Connection: os.Getenv("DB_CONNECTION"),
+			Host:       os.Getenv("DB_HOST"),
+			Port:       os.Getenv("DB_PORT"),
+			Database:   os.Getenv("DB_DATABASE"),
+			Username:   os.Getenv("DB_USERNAME"),
+			Password:   os.Getenv("DB_PASSWORD"),
+		},
+
+		Redis: RedisConfig{
+			Url:      os.Getenv("REDIS_URL"),
+			Password: os.Getenv("REDIS_PASSWORD"),
+		},
+
+		BankAPIBaseURL: os.Getenv("BANK_API_BASE_URL"),
+	}
+
+	return validate()
+}

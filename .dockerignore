@@ -1,0 +1,10 @@
+*.md
+*.log
+.env
+.env.example
+.idea
+.vscode
+.git
+/docker/storage
+/storage/*.sqlite
+/storage/*.db
