@@ -11,8 +11,9 @@ import (
 
 type AppConfig struct {
 	Name        string
-	version     string
+	Version     string
 	Environment string
+	Key         string
 	Port        string
 	Url         string
 }
@@ -69,7 +70,9 @@ func LoadEnv() error {
 	Env = &EnvType{
 		App: AppConfig{
 			Name:        os.Getenv("APP_NAME"),
+			Version:     os.Getenv("APP_VERSION"),
 			Environment: os.Getenv("APP_ENV"),
+			Key:         os.Getenv("APP_KEY"),
 			Port:        os.Getenv("APP_PORT"),
 			Url:         os.Getenv("APP_URL"),
 		},

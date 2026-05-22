@@ -30,7 +30,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.service.Create(
+	paymentIntent, err := h.service.Create(
 		r.Context(),
 		CreateInput{
 			Card: Card{
@@ -46,6 +46,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			IdempotencyKey: idempotencyKey,
 		},
 	)
+	if err != nil {
+		//
+	}
 
-	w.Write([]byte("Ok!"))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(paymentIntent)
 }
