@@ -5,6 +5,7 @@ import (
 	"ledger/app/middleware"
 	"ledger/app/storage"
 	"ledger/internal/bank"
+	"ledger/internal/idempotency"
 	"ledger/internal/paymentintent"
 	"log"
 	"net/http"
@@ -24,14 +25,22 @@ func main() {
 		log.Fatal(err)
 	}
 
+	redis, err := storage.InitRedis()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
 	ficmartBankRepo := bank.NewFicMartBankRepo(client)
 
+	idempotencyRepo := idempotency.NewRedisRepo(redis)
+	idempotencyService := idempotency.NewService(idempotencyRepo)
+
 	paymentIntentRepo := paymentintent.NewPostgresRepo(pgsql)
-	paymentIntentService := paymentintent.NewService(paymentIntentRepo, ficmartBankRepo)
+	paymentIntentService := paymentintent.NewService(paymentIntentRepo, ficmartBankRepo, idempotencyService)
 	paymentIntentHandler := paymentintent.NewHandler(paymentIntentService)
 
 	router := chi.NewRouter()

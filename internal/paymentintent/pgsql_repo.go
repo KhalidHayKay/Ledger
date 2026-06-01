@@ -42,15 +42,14 @@ func (r *PostgresRepo) Create(
 		)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING
-			id,
+			client_id,
 			payment_reference,
 			amount,
 			currency,
 			order_id,
 			customer_id,
 			status,
-			created_at,
-			updated_at
+			created_at
 	`,
 		paymentReference,
 		amount,
@@ -59,7 +58,7 @@ func (r *PostgresRepo) Create(
 		customerId,
 		PaymentStatusPending,
 	).Scan(
-		&intent.Id,
+		&intent.ClientId,
 		&intent.PaymentReference,
 		&intent.Amount,
 		&intent.Currency,
@@ -67,7 +66,6 @@ func (r *PostgresRepo) Create(
 		&intent.CustomerId,
 		&intent.Status,
 		&intent.CreatedAt,
-		&intent.UpdatedAt,
 	)
 
 	if err != nil {
@@ -89,6 +87,38 @@ func (r *PostgresRepo) Create(
 	}
 
 	err = tx.Commit(ctx)
+	if err != nil {
+		return PaymentIntent{}, err
+	}
+
+	return intent, nil
+}
+
+func (r *PostgresRepo) GetByPaymentRef(ctx context.Context, paymentReference string) (PaymentIntent, error) {
+	var intent PaymentIntent
+
+	err := r.pgsql.QueryRow(ctx, `
+		SELECT
+			client_id,
+			payment_reference,
+			amount,
+			currency,
+			order_id,
+			customer_id,
+			status,
+			created_at
+		 FROM payment_intents
+		 WHERE payment_reference = $1
+	`, paymentReference).Scan(
+		&intent.ClientId,
+		&intent.PaymentReference,
+		&intent.Amount,
+		&intent.Currency,
+		&intent.OrderId,
+		&intent.CustomerId,
+		&intent.Status,
+		&intent.CreatedAt,
+	)
 	if err != nil {
 		return PaymentIntent{}, err
 	}

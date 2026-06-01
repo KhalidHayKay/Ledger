@@ -68,9 +68,8 @@ type Amount struct {
 }
 
 type CreateInput struct {
-	Card           Card
-	Amount         Amount
-	OrderId        string
-	CustomerId     string
-	IdempotencyKey string
+	Card       Card
+	Amount     Amount
+	OrderId    string
+	CustomerId string
 }

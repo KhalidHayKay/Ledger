@@ -1,6 +1,8 @@
 package paymentintent
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	PaymentStatusPending    string = "pending"
@@ -11,14 +13,14 @@ const (
 )
 
 type PaymentIntent struct {
-	Id               string    `json:"id"`
+	Id               string    `json:"id,omitempty"`
 	ClientId         string    `json:"client_id"`
 	PaymentReference string    `json:"payment_reference"`
 	Amount           int       `json:"amount"`
 	Currency         string    `json:"currency"`
 	OrderId          string    `json:"order_id"`
-	Status           string    `json:"status"`
 	CustomerId       string    `json:"customer_id"`
+	Status           string    `json:"status"`
 	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	UpdatedAt        time.Time `json:"updated_at,omitempty"`
 }

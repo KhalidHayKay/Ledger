@@ -14,8 +14,7 @@ RUN go mod download
 COPY . .
 
 RUN if [ "$APP_ENV" != "local" ]; then \
-    go build -o cmd/web/main ./cmd/web && \
-    go build -o cmd/worker/main ./cmd/worker; \
+    go build -o cmd/app/main ./cmd/app; \
     fi
 
-ENTRYPOINT ["/bin/sh", "-c", "exec sh start.sh"]
+ENTRYPOINT ["/bin/sh", "start.sh"]

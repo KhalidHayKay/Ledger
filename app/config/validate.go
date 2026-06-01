@@ -29,5 +29,17 @@ func validate() error {
 		)
 	}
 
+	if Env.Redis.Host == "" {
+		return errors.New("REDIS_HOST not set")
+	}
+
+	if Env.Redis.Port == "" {
+		return errors.New("REDIS_PORT not set")
+	}
+
+	if Env.Redis.Password == "" {
+		return errors.New("REDIS_PASSWORD not set")
+	}
+
 	return nil
 }

@@ -1,7 +1,10 @@
 package paymentintent
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"ledger/app/render"
 	"net/http"
 )
 
@@ -30,8 +33,16 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	paymentIntent, err := h.service.Create(
+	requestHash, err := hashRequestBody(req)
+	if err != nil {
+		http.Error(w, "failed to hash request body", http.StatusInternalServerError)
+		return
+	}
+
+	paymentIntent, replayed, err := h.service.Create(
 		r.Context(),
+		idempotencyKey,
+		requestHash,
 		CreateInput{
 			Card: Card{
 				Number: req.Card.Number,
@@ -43,13 +54,28 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			},
 			Amount:  Amount{req.Amount, req.Currency},
 			OrderId: req.OrderId, CustomerId: req.CustomerId,
-			IdempotencyKey: idempotencyKey,
 		},
 	)
 	if err != nil {
-		//
+		render.ErrorJSON(w, http.StatusInternalServerError,
+			"CREATION_ERROR", "Unable to create Payment Intent")
+		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(paymentIntent)
+	if replayed {
+		w.Header().Set("X-Idempotent-Replayed", "true")
+	}
+
+	render.JSON(w, http.StatusCreated, "Payment Intent created successfully", paymentIntent)
+}
+
+func hashRequestBody(body any) (string, error) {
+	canonical, err := json.Marshal(body)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(canonical)
+	hash := hex.EncodeToString(sum[:])
+
+	return hash, nil
 }

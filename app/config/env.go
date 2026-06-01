@@ -19,7 +19,8 @@ type AppConfig struct {
 }
 
 type RedisConfig struct {
-	Url      string
+	Host     string
+	Port     string
 	Password string
 }
 
@@ -89,7 +90,8 @@ func LoadEnv() error {
 		},
 
 		Redis: RedisConfig{
-			Url:      os.Getenv("REDIS_URL"),
+			Host:     os.Getenv("REDIS_HOST"),
+			Port:     os.Getenv("REDIS_PORT"),
 			Password: os.Getenv("REDIS_PASSWORD"),
 		},
 

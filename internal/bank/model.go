@@ -19,9 +19,8 @@ type Amount struct {
 }
 
 type AuthorizeInput struct {
-	Card           Card
-	Amount         Amount
-	IdempotencyKey string
+	Card   Card
+	Amount Amount
 }
 
 type Payment struct {

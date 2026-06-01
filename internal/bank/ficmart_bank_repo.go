@@ -19,7 +19,7 @@ func NewFicMartBankRepo(client *http.Client) *FicMartBankRepo {
 	return &FicMartBankRepo{client}
 }
 
-func (r *FicMartBankRepo) Authorize(ctx context.Context, input AuthorizeInput) (Payment, error) {
+func (r *FicMartBankRepo) Authorize(ctx context.Context, idempotencyKey string, input AuthorizeInput) (Payment, error) {
 	url := config.Env.BankAPIBaseURL + "/api/v1/authorizations"
 	data := map[string]any{
 		"amount":       input.Amount.Figure,
@@ -41,7 +41,7 @@ func (r *FicMartBankRepo) Authorize(ctx context.Context, input AuthorizeInput) (
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Idempotency-Key", input.IdempotencyKey)
+	req.Header.Set("Idempotency-Key", idempotencyKey)
 
 	res, err := r.client.Do(req)
 	if err != nil {
@@ -61,10 +61,10 @@ func (r *FicMartBankRepo) Authorize(ctx context.Context, input AuthorizeInput) (
 		return Payment{}, fmt.Errorf("bank API error: %s", string(body))
 	}
 
-	var payment Payment
-	if err := json.Unmarshal(body, &payment); err != nil {
+	var resData ficMartAuthorizeResponse
+	if err := json.Unmarshal(body, &resData); err != nil {
 		return Payment{}, err
 	}
 
-	return payment, nil
+	return resData.ToPayment(), nil
 }
