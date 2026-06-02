@@ -14,16 +14,16 @@ var migrations = []cmdforge.Migration{
 	{
 		Name: "000001_create_payment_intents_table",
 		Up: `CREATE TABLE payment_intents (
-				id 				  SERIAL PRIMARY KEY,
-				client_id		  TEXT UNIQUE,
-				payment_reference TEXT NOT NULL UNIQUE,
-				order_id          TEXT NOT NULL,
-				customer_id       TEXT NOT NULL,
-				amount 			  BIGINT NOT NULL,
-				currency          CHAR(3) NOT NULL,
-				status            TEXT NOT NULL,
-				created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-				updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+				id 				  		BIGSERIAL PRIMARY KEY,
+				payment_reference 		TEXT UNIQUE,
+				bank_authorization_id	TEXT UNIQUE,
+				order_id          		TEXT NOT NULL,
+				customer_id       		TEXT NOT NULL,
+				amount 			  		BIGINT NOT NULL,
+				currency          		CHAR(3) NOT NULL,
+				status            		TEXT NOT NULL,
+				created_at        		TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at        		TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			);`,
 		Down: `DROP TABLE IF EXISTS payment_intents CASCADE;`,
 	},

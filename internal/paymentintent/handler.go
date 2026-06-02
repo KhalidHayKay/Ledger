@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"ledger/app/render"
 	"net/http"
 )
@@ -24,7 +25,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreatePaymentIntentRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		render.ErrorJSON(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -35,7 +36,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	requestHash, err := hashRequestBody(req)
 	if err != nil {
-		http.Error(w, "failed to hash request body", http.StatusInternalServerError)
+		render.ErrorJSON(w, "Unable to hash request body", http.StatusInternalServerError)
 		return
 	}
 
@@ -57,8 +58,23 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	if err != nil {
-		render.ErrorJSON(w, http.StatusInternalServerError,
-			"CREATION_ERROR", "Unable to create Payment Intent")
+		switch {
+		case errors.Is(err, ErrIdempotencyKeyReuse):
+			render.ErrorJSON(w, err.Error(), http.StatusConflict)
+
+		case errors.Is(err, ErrBankDeclined):
+			render.ErrorJSON(w, err.Error(), http.StatusUnprocessableEntity)
+
+		case errors.Is(err, ErrInconsistentState):
+			render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
+
+		case errors.Is(err, ErrInternal):
+			render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
+
+		default:
+			render.ErrorJSON(w, "Unexpected error", http.StatusInternalServerError)
+		}
+
 		return
 	}
 

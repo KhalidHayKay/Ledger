@@ -3,8 +3,11 @@ package idempotency
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type Service struct {
@@ -23,27 +26,34 @@ func (s *Service) ReserveKey(ctx context.Context, idempotencyKey, requestHash, p
 
 	entryEncode, err := json.Marshal(entry)
 	if err != nil {
+		log.Printf("Error encoding idempotency entry: %s", err)
 		return err
 	}
 
-	log.Println(string(entryEncode))
+	err = s.repo.SaveKey(ctx, fmt.Sprintf("idempotency-key:%s", idempotencyKey), string(entryEncode))
+	if err != nil {
+		log.Printf("Error saving idempotency key: %s", err)
+		return err
+	}
 
-	return s.repo.SaveKey(ctx, fmt.Sprintf("idempotency-key:%s", idempotencyKey), string(entryEncode))
+	return nil
 }
 
 func (s *Service) GetKeyReserve(ctx context.Context, idempotencyKey string) (*Entry, error) {
-	log.Println("key from service GET: ", idempotencyKey)
 	result, err := s.repo.GetByKey(ctx, fmt.Sprintf("idempotency-key:%s", idempotencyKey))
 	if err != nil {
+		if !errors.Is(err, redis.Nil) {
+			log.Printf("Error fetching idempotency key: %s", err)
+		}
+
 		return nil, err
 	}
-
-	log.Println(result)
 
 	var entry Entry
 
 	err = json.Unmarshal([]byte(result), &entry)
 	if err != nil {
+		log.Printf("Error decoding idempotency entry: %s", err)
 		return nil, err
 	}
 

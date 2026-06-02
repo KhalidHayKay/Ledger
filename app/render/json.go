@@ -30,12 +30,10 @@ func JSON(w http.ResponseWriter, status int, message string, data any) {
 }
 
 // ErrorJSON writes an error response.
-func ErrorJSON(w http.ResponseWriter, status int, code, message string) {
+func ErrorJSON(w http.ResponseWriter, message string, status int) {
 	writeJSON(w, status, Response{
 		Success: false,
-		Message: message,
 		Error: &APIError{
-			Code:    code,
 			Message: message,
 		},
 	})

@@ -45,7 +45,7 @@ func main() {
 
 	router := chi.NewRouter()
 
-	router.Use(chiMiddleware.Logger)
+	router.Use(chiMiddleware.Logger, chiMiddleware.Recoverer)
 
 	appMiddleware := middleware.NewMiddleware()
 	router.Use(appMiddleware.EnsureIndempotencyKey)
