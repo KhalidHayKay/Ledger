@@ -4,13 +4,17 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"ledger/app/config"
+	"strconv"
 )
 
-func GeneratePaymentRef(id string) string {
+func GeneratePaymentRef(id int64) string {
 	mac := hmac.New(sha256.New, []byte(config.Env.App.Key))
-	mac.Write([]byte(fmt.Sprintf("%v", id)))
+
+	var buf [20]byte
+	b := strconv.AppendInt(buf[:0], id, 10)
+
+	mac.Write(b)
 
 	return hex.EncodeToString(mac.Sum(nil))[:24]
 }

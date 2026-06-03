@@ -48,7 +48,9 @@ func (r *FicMartBankRepo) Authorize(ctx context.Context, idempotencyKey string, 
 		log.Printf("Client request error: %s", err)
 		return Payment{}, err
 	}
-	defer res.Body.Close()
+	defer func() {
+		_ = res.Body.Close()
+	}()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {

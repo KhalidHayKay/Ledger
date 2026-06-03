@@ -3,7 +3,6 @@ package paymentintent
 import (
 	"context"
 	"ledger/utils"
-	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -26,7 +25,9 @@ func (r *PostgresRepo) Create(
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	var intentId int64
 	err = tx.QueryRow(ctx, `
@@ -51,7 +52,7 @@ func (r *PostgresRepo) Create(
 	}
 
 	paymentReference := utils.GeneratePaymentRef(
-		strconv.FormatInt(int64(intentId), 10),
+		int64(intentId),
 	)
 
 	_, err = tx.Exec(ctx, `

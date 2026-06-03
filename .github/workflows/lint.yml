@@ -18,7 +18,7 @@ jobs:
       - name: Download deps
         run: go mod download
 
-      - name: Lint
-        run: |
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.3
-          golangci-lint run
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v1.60.3
+          args: --timeout 5m

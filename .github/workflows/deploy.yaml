@@ -25,4 +25,4 @@ jobs:
         #     docker compose down
 
         #     docker compose up -d --build
-        run: echo "Deploying to VPS..." # Placeholder for actual deployment commands
+        run: echo "Deploying to VPS..."
