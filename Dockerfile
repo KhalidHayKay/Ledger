@@ -1,5 +1,7 @@
 FROM golang:1.26-alpine
 
+RUN apk add --no-cache gcc musl-dev
+
 WORKDIR /var/www
 
 ARG APP_ENV
