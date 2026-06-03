@@ -22,7 +22,11 @@ func InitRedis() (*redis.Client, error) {
 
 	_, err := redis.Ping(ctx).Result()
 	if err != nil {
-		redis.Close()
+		err := redis.Close()
+		if err != nil {
+			return nil, err
+		}
+
 		return nil, err
 	}
 
