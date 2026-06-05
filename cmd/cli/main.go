@@ -13,7 +13,8 @@ import (
 var migrations = []cmdforge.Migration{
 	{
 		Name: "000001_create_payment_intents_table",
-		Up: `CREATE TABLE payment_intents (
+		Up: `
+			CREATE TABLE payment_intents (
 				id 				  		BIGSERIAL PRIMARY KEY,
 				payment_reference 		TEXT UNIQUE,
 				bank_authorization_id	TEXT UNIQUE,
@@ -24,8 +25,39 @@ var migrations = []cmdforge.Migration{
 				status            		TEXT NOT NULL,
 				created_at        		TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 				updated_at        		TIMESTAMPTZ NOT NULL DEFAULT NOW()
-			);`,
+			);
+		`,
 		Down: `DROP TABLE IF EXISTS payment_intents CASCADE;`,
+	},
+	{
+		Name: "000002_create_payment_process_table",
+		Up: `
+			CREATE TABLE payment_processes (
+				id                BIGSERIAL PRIMARY KEY,
+				payment_intent_id BIGINT NOT NULL,
+				type              TEXT NOT NULL,
+				external_id       TEXT,
+				metadata          BYTEA,
+				created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+				CONSTRAINT fk_payment_intents
+					FOREIGN KEY (payment_intent_id)
+					REFERENCES payment_intents(id)
+					ON DELETE CASCADE
+			);
+
+			CREATE INDEX idx_payment_processes_intent_id
+			ON payment_processes(payment_intent_id);
+
+			CREATE INDEX idx_payment_processes_external_id
+			ON payment_processes(external_id);
+		`,
+		Down: `
+			DROP INDEX IF EXISTS idx_payment_processes_external_id;
+			DROP INDEX IF EXISTS idx_payment_processes_intent_id;
+			
+			DROP TABLE IF EXISTS payment_processes;
+		`,
 	},
 }
 
