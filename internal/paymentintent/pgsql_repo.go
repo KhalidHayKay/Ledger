@@ -28,6 +28,9 @@ func (r *PostgresRepo) Create(
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	var intentId int64
 	err = tx.QueryRow(ctx, `
