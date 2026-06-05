@@ -32,11 +32,7 @@ func (r *PostgresRepo) Create(
 	var intentId int64
 	err = tx.QueryRow(ctx, `
 		INSERT INTO payment_intents (
-			amount,
-			currency,
-			order_id,
-			customer_id,
-			status
+			amount, currency, order_id, customer_id, status
 		)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id
@@ -51,9 +47,7 @@ func (r *PostgresRepo) Create(
 		return "", err
 	}
 
-	paymentReference := utils.GeneratePaymentRef(
-		int64(intentId),
-	)
+	paymentReference := utils.GeneratePaymentRef(intentId)
 
 	_, err = tx.Exec(ctx, `
 		UPDATE payment_intents
@@ -76,15 +70,21 @@ func (r *PostgresRepo) Create(
 }
 
 func (r *PostgresRepo) UpdateBankAuth(ctx context.Context, paymentRef, bankAuthId string) (PaymentIntent, error) {
-	var intent PaymentIntent
+	tx, err := r.pgsql.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return PaymentIntent{}, err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
-	err := r.pgsql.QueryRow(ctx, `
+	var intent PaymentIntent
+	err = tx.QueryRow(ctx, `
 		UPDATE payment_intents
-		SET
-			bank_authorization_id = $1,
-			status = $2
-		WHERE payment_reference = $3
+		SET status = $1
+		WHERE payment_reference = $2
 		RETURNING
+			id,
 			payment_reference,
 			amount,
 			currency,
@@ -92,7 +92,8 @@ func (r *PostgresRepo) UpdateBankAuth(ctx context.Context, paymentRef, bankAuthI
 			customer_id,
 			status,
 			created_at
-	`, bankAuthId, PaymentStatusAuthorized, paymentRef).Scan(
+	`, PaymentStatusAuthorized, paymentRef).Scan(
+		&intent.Id,
 		&intent.PaymentReference,
 		&intent.Amount,
 		&intent.Currency,
@@ -101,6 +102,34 @@ func (r *PostgresRepo) UpdateBankAuth(ctx context.Context, paymentRef, bankAuthI
 		&intent.Status,
 		&intent.CreatedAt,
 	)
+	if err != nil {
+		return PaymentIntent{}, err
+	}
+
+	var process PaymentProcess
+	err = tx.QueryRow(ctx, `
+		INSERT INTO payment_processes (
+			payment_intent_id, type, external_id
+		)
+		VALUES ($1, $2, $3)
+		RETURNING id, payment_intent_id, type, external_id, created_at
+	`,
+		intent.Id,
+		PaymentStatusAuthorized,
+		bankAuthId,
+	).Scan(
+		&process.Id,
+		&process.PaymentIntentId,
+		&process.Type,
+		&process.ExternalId,
+		&process.CreatedAt,
+	)
+	if err != nil {
+		return PaymentIntent{}, err
+	}
+	intent.CurrentPaymentProcess = &process
+
+	err = tx.Commit(ctx)
 	if err != nil {
 		return PaymentIntent{}, err
 	}
@@ -113,6 +142,7 @@ func (r *PostgresRepo) GetByPaymentRef(ctx context.Context, paymentReference str
 
 	err := r.pgsql.QueryRow(ctx, `
 		SELECT
+			id,
 			payment_reference,
 			amount,
 			currency,
@@ -123,6 +153,7 @@ func (r *PostgresRepo) GetByPaymentRef(ctx context.Context, paymentReference str
 		 FROM payment_intents
 		 WHERE payment_reference = $1
 	`, paymentReference).Scan(
+		&intent.Id,
 		&intent.PaymentReference,
 		&intent.Amount,
 		&intent.Currency,
@@ -135,5 +166,40 @@ func (r *PostgresRepo) GetByPaymentRef(ctx context.Context, paymentReference str
 		return PaymentIntent{}, err
 	}
 
+	process, err := r.GetCurrentProcess(ctx, intent.Id, intent.Status)
+	if err != nil {
+		return PaymentIntent{}, err
+	}
+
+	intent.CurrentPaymentProcess = &process
+
 	return intent, nil
+}
+
+func (r *PostgresRepo) GetCurrentProcess(ctx context.Context, paymentIntentId, paymentIntentStatus string) (PaymentProcess, error) {
+	var process PaymentProcess
+	err := r.pgsql.QueryRow(ctx, `
+		SELECT
+			id,
+			payment_intent_id,
+			type,
+			external_id,
+			metadata,
+			created_at
+		FROM payment_processes
+		WHERE payment_intent_id = $1
+			AND type = $2
+	`, paymentIntentId, paymentIntentStatus).Scan(
+		&process.Id,
+		&process.PaymentIntentId,
+		&process.Type,
+		&process.ExternalId,
+		&process.Metadata,
+		&process.CreatedAt,
+	)
+	if err != nil {
+		return PaymentProcess{}, err
+	}
+
+	return process, nil
 }

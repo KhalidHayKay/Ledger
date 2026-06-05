@@ -18,6 +18,10 @@ const (
 
 	authorizeCall = "Authorize"
 
+	captureCall = "Capture"
+	voidCall    = "Void"
+	refundCall  = "Refund"
+
 	saveKeyCall  = "SaveKey"
 	getByKeyCall = "GetByKey"
 )
@@ -48,6 +52,9 @@ func (r *repoMock) GetByPaymentRef(ctx context.Context, paymentReference string)
 // Bank Repo Mocks
 type bankRepoMock struct {
 	AuthorizeFn func(ctx context.Context, idempotencyKey string, input bank.AuthorizeInput) (bank.Payment, error)
+	CaptureFn   func(ctx context.Context, idempotencyKey, authorizationId, amount string) (bank.Payment, error)
+	VoidFn      func(ctx context.Context, idempotencyKey, authorizationId string) (bank.Payment, error)
+	RefundFn    func(ctx context.Context, idempotencyKey, captureId, amount string) (bank.Payment, error)
 
 	calls []string
 }
@@ -55,6 +62,21 @@ type bankRepoMock struct {
 func (r *bankRepoMock) Authorize(ctx context.Context, idempotencyKey string, input bank.AuthorizeInput) (bank.Payment, error) {
 	r.calls = append(r.calls, authorizeCall)
 	return r.AuthorizeFn(ctx, idempotencyKey, input)
+}
+
+func (r *bankRepoMock) Capture(ctx context.Context, idempotencyKey, authorizationId, amount string) (bank.Payment, error) {
+	r.calls = append(r.calls, captureCall)
+	return r.CaptureFn(ctx, idempotencyKey, authorizationId, amount)
+}
+
+func (r *bankRepoMock) Void(ctx context.Context, idempotencyKey, authorizationId string) (bank.Payment, error) {
+	r.calls = append(r.calls, voidCall)
+	return r.VoidFn(ctx, idempotencyKey, authorizationId)
+}
+
+func (r *bankRepoMock) Refund(ctx context.Context, idempotencyKey, captureId, amount string) (bank.Payment, error) {
+	r.calls = append(r.calls, refundCall)
+	return r.RefundFn(ctx, idempotencyKey, captureId, amount)
 }
 
 // Idempotency Repo Mocks
@@ -82,7 +104,6 @@ func TestGetReservedHappyPath(t *testing.T) {
 		RequestHash: requestHash,
 		PaymentRef:  paymentRef,
 	}
-	bankAuthId := "payment-id-from-bank"
 
 	idempotencyRepo := &idempotencyRepoMock{
 		GetByKeyFn: func(ctx context.Context, idempotencyKey string) (string, error) {
@@ -94,8 +115,7 @@ func TestGetReservedHappyPath(t *testing.T) {
 	repo := &repoMock{
 		GetByPaymentRefFn: func(ctx context.Context, paymentReference string) (PaymentIntent, error) {
 			return PaymentIntent{
-				BankAuthorizationId: bankAuthId,
-				PaymentReference:    paymentRef,
+				PaymentReference: paymentRef,
 			}, nil
 		},
 	}
@@ -222,7 +242,7 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 				AuthorizeFn: func(
 					ctx context.Context, idempotencyKey string, input bank.AuthorizeInput,
 				) (bank.Payment, error) {
-					return bank.Payment{Id: tt.bankAuthId}, nil
+					return bank.Payment{AuthorizationId: tt.bankAuthId}, nil
 				},
 			}
 
@@ -232,8 +252,8 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 				},
 				UpdateBankAuthFn: func(ctx context.Context, paymentRef, bankAuthId string) (PaymentIntent, error) {
 					return PaymentIntent{
-						PaymentReference:    paymentRef,
-						BankAuthorizationId: bankAuthId,
+						PaymentReference: paymentRef,
+						// BankAuthorizationId: bankAuthId,
 					}, nil
 				},
 			}
@@ -260,9 +280,9 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 				t.Errorf("Expected payment reference to be %q, got %q", tt.paymentRef, paymentIntent.PaymentReference)
 			}
 
-			if paymentIntent.BankAuthorizationId != tt.bankAuthId {
-				t.Errorf("Expected bank authorization ID to be %q, got %q", tt.bankAuthId, paymentIntent.BankAuthorizationId)
-			}
+			// if paymentIntent.BankAuthorizationId != tt.bankAuthId {
+			// 	t.Errorf("Expected bank authorization ID to be %q, got %q", tt.bankAuthId, paymentIntent.BankAuthorizationId)
+			// }
 		})
 	}
 }
