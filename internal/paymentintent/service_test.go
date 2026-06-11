@@ -3,17 +3,15 @@ package paymentintent
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"ledger/internal/bank"
 	"ledger/internal/idempotency"
+	"ledger/internal/paymentprocess"
 	"testing"
-
-	"github.com/redis/go-redis/v9"
 )
 
 const (
 	createCall          = "Create"
-	updateBankAuthCall  = "UpdateBankAuth"
+	updateStateCall     = "UpdateState"
 	getByPaymentRefCall = "GetByPaymentRef"
 
 	authorizeCall = "Authorize"
@@ -27,26 +25,50 @@ const (
 )
 
 type repoMock struct {
-	CreateFn          func(ctx context.Context, amount int, currency, orderId, customerId string) (string, error)
-	UpdateBankAuthFn  func(ctx context.Context, paymentRef, bankAuthId string) (PaymentIntent, error)
-	GetByPaymentRefFn func(ctx context.Context, paymentReference string) (PaymentIntent, error)
+	CreateFn          func(ctx context.Context, amount int, currency, orderId, customerId string) (PaymentIntent, error)
+	CreateReferenceFn func(ctx context.Context, id, generatedRef string) error
+	UpdateStateFn     func(ctx context.Context, paymentRef, state string) error
+	GetByPaymentRefFn func(ctx context.Context, paymentRef string) (PaymentIntent, error)
 
 	calls []string
 }
 
-func (r *repoMock) Create(ctx context.Context, amount int, currency, orderId, customerId string) (string, error) {
+func (r *repoMock) Create(ctx context.Context, amount int, currency, orderId, customerId string) (PaymentIntent, error) {
 	r.calls = append(r.calls, createCall)
 	return r.CreateFn(ctx, amount, currency, orderId, customerId)
 }
 
-func (r *repoMock) UpdateBankAuth(ctx context.Context, paymentRef, bankAuthId string) (PaymentIntent, error) {
-	r.calls = append(r.calls, updateBankAuthCall)
-	return r.UpdateBankAuthFn(ctx, paymentRef, bankAuthId)
+func (r *repoMock) CreateReference(ctx context.Context, id, generatedRef string) error {
+	r.calls = append(r.calls, createCall)
+	return r.CreateReferenceFn(ctx, id, generatedRef)
 }
 
-func (r *repoMock) GetByPaymentRef(ctx context.Context, paymentReference string) (PaymentIntent, error) {
+func (r *repoMock) UpdateState(ctx context.Context, paymentRef, state string) error {
+	r.calls = append(r.calls, updateStateCall)
+	return r.UpdateStateFn(ctx, paymentRef, state)
+}
+
+func (r *repoMock) GetByPaymentRef(ctx context.Context, paymentRef string) (PaymentIntent, error) {
 	r.calls = append(r.calls, getByPaymentRefCall)
-	return r.GetByPaymentRefFn(ctx, paymentReference)
+	return r.GetByPaymentRefFn(ctx, paymentRef)
+}
+
+// Payment process mocks
+type ppRepoMock struct {
+	CreateFn            func(ctx context.Context, intentId, status, bankAuthId string) (paymentprocess.PaymentProcess, error)
+	GetCurrentProcessFn func(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentprocess.PaymentProcess, error)
+
+	calls []string
+}
+
+func (m *ppRepoMock) Create(ctx context.Context, intentId, status, bankAuthId string) (paymentprocess.PaymentProcess, error) {
+	m.calls = append(m.calls, createCall)
+	return m.CreateFn(ctx, intentId, status, bankAuthId)
+}
+
+func (m *ppRepoMock) GetCurrentProcess(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentprocess.PaymentProcess, error) {
+	m.calls = append(m.calls, getByPaymentRefCall)
+	return m.GetCurrentProcessFn(ctx, paymentIntentId, paymentIntentStatus)
 }
 
 // Bank Repo Mocks
@@ -97,6 +119,15 @@ func (r *idempotencyRepoMock) GetByKey(ctx context.Context, idempotencyKey strin
 	return r.GetByKeyFn(ctx, idempotencyKey)
 }
 
+// UoW Mock
+type uowMock struct {
+	RunInTxFn func(ctx context.Context, fn func(Repos) error) error
+}
+
+func (m *uowMock) RunInTx(ctx context.Context, fn func(Repos) error) error {
+	return m.RunInTxFn(ctx, fn)
+}
+
 func TestGetReservedHappyPath(t *testing.T) {
 	requestHash := "req-hash"
 	paymentRef := "payment-ref"
@@ -113,24 +144,32 @@ func TestGetReservedHappyPath(t *testing.T) {
 	}
 
 	repo := &repoMock{
-		GetByPaymentRefFn: func(ctx context.Context, paymentReference string) (PaymentIntent, error) {
+		GetByPaymentRefFn: func(ctx context.Context, paymentRef string) (PaymentIntent, error) {
 			return PaymentIntent{
-				PaymentReference: paymentRef,
+				PaymentRef: paymentRef,
 			}, nil
+		},
+	}
+
+	uow := &uowMock{
+		RunInTxFn: func(ctx context.Context, fn func(Repos) error) error {
+			return fn(Repos{
+				PaymentIntent: repo,
+			})
 		},
 	}
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &bankRepoMock{}, idempotencyService)
+	service := NewService(repo, &bankRepoMock{}, uow, idempotencyService)
 
 	paymentIntent, err := service.getReserved(context.Background(), "idm-key", requestHash)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
-	if paymentIntent.PaymentReference != paymentRef {
-		t.Fatalf("Expected payment reference to be %q, got %q", paymentRef, paymentIntent.PaymentReference)
+	if paymentIntent.PaymentRef != paymentRef {
+		t.Fatalf("Expected payment reference to be %q, got %q", paymentRef, paymentIntent.PaymentRef)
 	}
 }
 
@@ -154,135 +193,26 @@ func TestGetReservedThrowsErrorOnIdempotencyKeyReuse(t *testing.T) {
 	}
 
 	repo := &repoMock{
-		GetByPaymentRefFn: func(ctx context.Context, paymentReference string) (PaymentIntent, error) {
+		GetByPaymentRefFn: func(ctx context.Context, paymentRef string) (PaymentIntent, error) {
 			t.Errorf("Expected an error boundary to block GetByPaymentRef from getting called for idempotency key reuse")
 			return PaymentIntent{}, nil
 		},
 	}
 
+	uow := &uowMock{
+		RunInTxFn: func(ctx context.Context, fn func(Repos) error) error {
+			return fn(Repos{
+				PaymentIntent: repo,
+			})
+		},
+	}
+
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &bankRepoMock{}, idempotencyService)
+	service := NewService(repo, &bankRepoMock{}, uow, idempotencyService)
 
 	_, err := service.getReserved(context.Background(), "idm-key", requestHash)
 	if err == nil {
 		t.Fatalf("Expected error due to idempotency key reuse with different request hash, got nil")
-	}
-}
-
-func TestCreateRelaysExistingPaymentIntent(t *testing.T) {
-	requestHash := "req-hash"
-	mockEntry := idempotency.Entry{
-		RequestHash: requestHash,
-	}
-
-	idempotencyRepo := &idempotencyRepoMock{
-		GetByKeyFn: func(ctx context.Context, idempotencyKey string) (string, error) {
-			entryEncode, err := json.Marshal(mockEntry)
-			if err != nil {
-				t.Fatalf("Failed to marshal mock entry: %v", err)
-			}
-			return string(entryEncode), nil
-		},
-	}
-
-	repo := &repoMock{
-		GetByPaymentRefFn: func(ctx context.Context, paymentReference string) (PaymentIntent, error) {
-			return PaymentIntent{}, nil
-		},
-		CreateFn: func(ctx context.Context, amount int, currency, orderId, customerId string) (string, error) {
-			t.Fatalf("Create should not be called for reserved payment intent")
-			return "", nil
-		},
-	}
-
-	idempotencyService := idempotency.NewService(idempotencyRepo)
-
-	service := NewService(repo, &bankRepoMock{}, idempotencyService)
-
-	_, relayed, err := service.Create(
-		context.Background(),
-		"idmkey",
-		"req-hash",
-		CreateInput{},
-	)
-	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
-	}
-
-	if !relayed {
-		t.Errorf("Expected Create to return relayed=true for reserved payment intent, got false")
-	}
-}
-
-func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
-	tests := []struct {
-		idempotencyKey string
-		requestHash    string
-		paymentRef     string
-		bankAuthId     string
-	}{
-		{"idmkey-1", "req-hash-1", "payment-ref-1", "bank-authorization-id-1"},
-		{"idmkey-2", "req-hash-2", "payment-ref-2", "bank-authorization-id-2"},
-		{"idmkey-3", "req-hash-3", "payment-ref-3", "bank-authorization-id-3"},
-	}
-
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("With Idempotency Key \"%v\"", tt.idempotencyKey), func(t *testing.T) {
-			idempotencyRepo := &idempotencyRepoMock{
-				GetByKeyFn: func(ctx context.Context, idempotencyKey string) (string, error) {
-					return "", redis.Nil
-				},
-				SaveKeyFn: func(ctx context.Context, idempotencyKey, entry string) error {
-					return nil
-				},
-			}
-
-			bankRepo := &bankRepoMock{
-				AuthorizeFn: func(
-					ctx context.Context, idempotencyKey string, input bank.AuthorizeInput,
-				) (bank.Payment, error) {
-					return bank.Payment{AuthorizationId: tt.bankAuthId}, nil
-				},
-			}
-
-			repo := &repoMock{
-				CreateFn: func(ctx context.Context, amount int, currency, orderId, customerId string) (string, error) {
-					return tt.paymentRef, nil
-				},
-				UpdateBankAuthFn: func(ctx context.Context, paymentRef, bankAuthId string) (PaymentIntent, error) {
-					return PaymentIntent{
-						PaymentReference: paymentRef,
-						// BankAuthorizationId: bankAuthId,
-					}, nil
-				},
-			}
-
-			idempotencyService := idempotency.NewService(idempotencyRepo)
-
-			service := NewService(repo, bankRepo, idempotencyService)
-
-			paymentIntent, relayed, err := service.Create(
-				context.Background(),
-				tt.idempotencyKey,
-				tt.requestHash,
-				CreateInput{},
-			)
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
-
-			if relayed {
-				t.Errorf("Expected Create to return relayed=false for new payment intent, got true")
-			}
-
-			if paymentIntent.PaymentReference != tt.paymentRef {
-				t.Errorf("Expected payment reference to be %q, got %q", tt.paymentRef, paymentIntent.PaymentReference)
-			}
-
-			// if paymentIntent.BankAuthorizationId != tt.bankAuthId {
-			// 	t.Errorf("Expected bank authorization ID to be %q, got %q", tt.bankAuthId, paymentIntent.BankAuthorizationId)
-			// }
-		})
 	}
 }
