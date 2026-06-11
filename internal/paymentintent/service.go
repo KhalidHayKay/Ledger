@@ -5,15 +5,27 @@ import (
 	"errors"
 	"ledger/internal/bank"
 	"ledger/internal/idempotency"
+	"ledger/internal/paymentprocess"
 	"log"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 )
 
+type Repos struct {
+	PaymentIntent  Repository
+	PaymentProcess paymentprocess.Repository
+}
+
+type UoW interface {
+	RunInTx(ctx context.Context, fn func(Repos) error) error
+}
+
 type Service struct {
 	repo     Repository
 	bankRepo bank.Repository
+
+	uow UoW
 
 	idempotencyService *idempotency.Service
 }
@@ -21,9 +33,10 @@ type Service struct {
 func NewService(
 	repo Repository,
 	bankRepo bank.Repository,
+	uow UoW,
 	idempotencyService *idempotency.Service,
 ) *Service {
-	return &Service{repo, bankRepo, idempotencyService}
+	return &Service{repo, bankRepo, uow, idempotencyService}
 }
 
 func (s *Service) Cancel() {
