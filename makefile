@@ -8,10 +8,7 @@ cli:
 	docker compose exec app go run $(CLI_DIR) $(filter-out $@,$(MAKECMDGOALS))
 
 logs:
-	$(eval ARGS := $(filter-out $@,$(MAKECMDGOALS)))
-	$(eval SERVICE := $(word 1,$(ARGS)))
-	$(eval TAIL := $(or $(word 2,$(ARGS)),100))
-	docker compose logs -f --tail=$(TAIL) $(SERVICE)
+	docker compose logs -f --tail=10
 
 test:
 	docker compose exec app go test -v ./...

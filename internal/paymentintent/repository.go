@@ -3,7 +3,8 @@ package paymentintent
 import "context"
 
 type Repository interface {
-	Create(ctx context.Context, amount int, currency, orderId, customerId string) (string, error)
-	UpdateBankAuth(ctx context.Context, paymentRef, bankAuthId string) (PaymentIntent, error)
-	GetByPaymentRef(ctx context.Context, paymentReference string) (PaymentIntent, error)
+	Create(ctx context.Context, amount int, currency, orderId, customerId string) (PaymentIntent, error)
+	CreateReference(ctx context.Context, id, generatedRef string) error
+	UpdateState(ctx context.Context, paymentRef, state string) error
+	GetByPaymentRef(ctx context.Context, paymentRef string) (PaymentIntent, error)
 }

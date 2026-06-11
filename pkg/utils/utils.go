@@ -16,5 +16,5 @@ func GeneratePaymentRef(id int64) string {
 
 	mac.Write(b)
 
-	return hex.EncodeToString(mac.Sum(nil))[:24]
+	return "pi_" + hex.EncodeToString(mac.Sum(nil))[:24]
 }
