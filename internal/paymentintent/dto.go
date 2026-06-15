@@ -49,6 +49,19 @@ func (r *CreatePaymentIntentRequest) Validate() error {
 	)
 }
 
+type CapturePaymentIntentRequest struct {
+	PaymentRef string `json:"payment_ref"`
+	Amount     string `json:"amount"`
+}
+
+func (r *CapturePaymentIntentRequest) Validate() error {
+	return validation.ValidateStruct(
+		r,
+		validation.Field(&r.PaymentRef, validation.Required),
+		validation.Field(&r.Amount, validation.Required),
+	)
+}
+
 // Bussiness DTO
 
 type CardExpiry struct {

@@ -8,6 +8,7 @@ import (
 	"ledger/internal/bank"
 	"ledger/internal/idempotency"
 	"ledger/internal/paymentintent"
+	"ledger/internal/paymentprocess"
 	"ledger/pkg/uow"
 	"log"
 	"net/http"
@@ -41,12 +42,16 @@ func main() {
 	idempotencyRepo := idempotency.NewRedisRepo(redis)
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
+	paymentProcessRepo := paymentprocess.NewPostgresRepo(pgsql)
+
 	uow := uow.NewPgsqlUoW(pgsql)
 
 	paymentIntentRepo := paymentintent.NewPostgresRepo(pgsql)
 	paymentIntentService := paymentintent.NewService(
 		paymentIntentRepo,
+		paymentProcessRepo,
 		ficmartBankRepo,
+
 		&paymentIntentTxAdapter{u: uow},
 		idempotencyService,
 	)
@@ -60,6 +65,7 @@ func main() {
 	router.Use(appMiddleware.EnsureIndempotencyKey)
 
 	router.Post("/payment/intent", paymentIntentHandler.Create)
+	router.Post("/payment/intent/capture", paymentIntentHandler.Capture)
 
 	s := &http.Server{
 		Addr:           ":" + config.Env.App.Port,

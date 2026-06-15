@@ -9,4 +9,5 @@ var (
 	ErrBankDeclined        = errors.New("bank declined payment")
 	ErrInconsistentState   = errors.New("payment intent state inconsistent")
 	ErrInternal            = errors.New("internal error")
+	ErrInvalidStatus       = errors.New("invalid payment intent status for this operation")
 )

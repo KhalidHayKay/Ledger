@@ -23,7 +23,7 @@ func (s *Service) Create(
 
 	var paymentIntent PaymentIntent
 	err = s.uow.RunInTx(ctx, func(r Repos) error {
-		paymentIntent, err = s.repo.Create(
+		paymentIntent, err = r.PaymentIntent.Create(
 			ctx, input.Amount.Figure, input.Amount.Currency, input.OrderId, input.CustomerId,
 		)
 		if err != nil {
@@ -39,7 +39,7 @@ func (s *Service) Create(
 
 		paymentIntent.PaymentRef = utils.GeneratePaymentRef(id)
 
-		err = s.repo.CreateReference(
+		err = r.PaymentIntent.CreateReference(
 			ctx, paymentIntent.Id, paymentIntent.PaymentRef,
 		)
 		if err != nil {

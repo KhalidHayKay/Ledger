@@ -22,8 +22,9 @@ type UoW interface {
 }
 
 type Service struct {
-	repo     Repository
-	bankRepo bank.Repository
+	repo        Repository
+	processRepo paymentprocess.Repository
+	bankRepo    bank.Repository
 
 	uow UoW
 
@@ -32,19 +33,12 @@ type Service struct {
 
 func NewService(
 	repo Repository,
+	processRepo paymentprocess.Repository,
 	bankRepo bank.Repository,
 	uow UoW,
 	idempotencyService *idempotency.Service,
 ) *Service {
-	return &Service{repo, bankRepo, uow, idempotencyService}
-}
-
-func (s *Service) Cancel() {
-	//
-}
-
-func (s *Service) Refund() {
-	//
+	return &Service{repo, processRepo, bankRepo, uow, idempotencyService}
 }
 
 func (s *Service) getReserved(ctx context.Context, idempotencyKey, requestHash string) (*PaymentIntent, error) {

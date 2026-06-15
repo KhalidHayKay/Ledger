@@ -55,8 +55,8 @@ func (r *repoMock) GetByPaymentRef(ctx context.Context, paymentRef string) (Paym
 
 // Payment process mocks
 type ppRepoMock struct {
-	CreateFn            func(ctx context.Context, intentId, status, bankAuthId string) (paymentprocess.PaymentProcess, error)
-	GetCurrentProcessFn func(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentprocess.PaymentProcess, error)
+	CreateFn               func(ctx context.Context, intentId, status, bankAuthId string) (paymentprocess.PaymentProcess, error)
+	GetByIntentAndStatusFn func(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentprocess.PaymentProcess, error)
 
 	calls []string
 }
@@ -66,9 +66,9 @@ func (m *ppRepoMock) Create(ctx context.Context, intentId, status, bankAuthId st
 	return m.CreateFn(ctx, intentId, status, bankAuthId)
 }
 
-func (m *ppRepoMock) GetCurrentProcess(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentprocess.PaymentProcess, error) {
+func (m *ppRepoMock) GetByIntentAndStatus(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentprocess.PaymentProcess, error) {
 	m.calls = append(m.calls, getByPaymentRefCall)
-	return m.GetCurrentProcessFn(ctx, paymentIntentId, paymentIntentStatus)
+	return m.GetByIntentAndStatusFn(ctx, paymentIntentId, paymentIntentStatus)
 }
 
 // Bank Repo Mocks
@@ -161,7 +161,7 @@ func TestGetReservedHappyPath(t *testing.T) {
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &bankRepoMock{}, uow, idempotencyService)
+	service := NewService(repo, &ppRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
 
 	paymentIntent, err := service.getReserved(context.Background(), "idm-key", requestHash)
 	if err != nil {
@@ -209,7 +209,7 @@ func TestGetReservedThrowsErrorOnIdempotencyKeyReuse(t *testing.T) {
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &bankRepoMock{}, uow, idempotencyService)
+	service := NewService(repo, &ppRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
 
 	_, err := service.getReserved(context.Background(), "idm-key", requestHash)
 	if err == nil {
