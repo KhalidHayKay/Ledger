@@ -48,7 +48,7 @@ func TestCreateReplaysExistingPaymentIntent(t *testing.T) {
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &bankRepoMock{}, uow, idempotencyService)
+	service := NewService(repo, &ppRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
 
 	_, relayed, err := service.Create(
 		context.Background(),
@@ -128,7 +128,7 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 				},
 			}
 
-			service := NewService(repo, bankRepo, uow, idempotencyService)
+			service := NewService(repo, &ppRepoMock{}, bankRepo, uow, idempotencyService)
 
 			paymentIntent, relayed, err := service.Create(
 				context.Background(),

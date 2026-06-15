@@ -22,17 +22,14 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		_ = r.Body.Close()
 	}()
 
-	idempotencyKey := r.Header.Get("Idempotency-Key")
-
 	var req CreatePaymentIntentRequest
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		render.ErrorJSON(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		render.ErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -44,7 +41,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	paymentIntent, replayed, err := h.service.Create(
 		r.Context(),
-		idempotencyKey,
+		r.Header.Get("Idempotency-Key"),
 		requestHash,
 		CreateInput{
 			Card: Card{
@@ -58,6 +55,60 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			Amount:  Amount{req.Amount, req.Currency},
 			OrderId: req.OrderId, CustomerId: req.CustomerId,
 		},
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrIdempotencyKeyReuse):
+			render.ErrorJSON(w, err.Error(), http.StatusConflict)
+
+		case errors.Is(err, ErrBankDeclined):
+			render.ErrorJSON(w, err.Error(), http.StatusUnprocessableEntity)
+
+		case errors.Is(err, ErrInconsistentState):
+			render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
+
+		case errors.Is(err, ErrInternal):
+			render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
+
+		default:
+			render.ErrorJSON(w, "Unexpected error", http.StatusInternalServerError)
+		}
+
+		return
+	}
+
+	if replayed {
+		w.Header().Set("X-Idempotent-Replayed", "true")
+	}
+
+	render.JSON(w, http.StatusCreated, "Payment Intent created successfully", paymentIntent)
+}
+
+func (h *Handler) Capture(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		_ = r.Body.Close()
+	}()
+
+	var req CapturePaymentIntentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		render.ErrorJSON(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		render.ErrorJSON(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	requestHash, err := hashRequestBody(req)
+	if err != nil {
+		render.ErrorJSON(w, "Unable to hash request body", http.StatusInternalServerError)
+		return
+	}
+
+	paymentIntent, replayed, err := h.service.Capture(
+		r.Context(), r.Header.Get("Idempotency-Key"),
+		requestHash, req.PaymentRef, req.Amount,
 	)
 	if err != nil {
 		switch {

@@ -74,3 +74,25 @@ func (r *PostgresRepo) GetCurrentProcess(ctx context.Context, paymentIntentId, p
 
 	return process, nil
 }
+
+func (r *PostgresRepo) GetByIntentAndStatus(ctx context.Context, intentId, status string) (PaymentProcess, error) {
+	var p PaymentProcess
+	err := r.db.QueryRow(ctx, `
+        SELECT id, payment_intent_id, type, external_id, created_at
+        FROM payment_processes
+        WHERE payment_intent_id = $1
+          AND type = $2
+    `, intentId, status).Scan(
+		&p.Id,
+		&p.PaymentIntentId,
+		&p.Type,
+		&p.ExternalId,
+		&p.CreatedAt,
+	)
+
+	if err != nil {
+		return PaymentProcess{}, err
+	}
+
+	return p, nil
+}
