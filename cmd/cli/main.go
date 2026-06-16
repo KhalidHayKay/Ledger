@@ -32,10 +32,10 @@ var migrations = []cmdforge.Migration{
 	{
 		Name: "000002_create_payment_process_table",
 		Up: `
-			CREATE TABLE payment_processes (
+			CREATE TABLE payment_events (
 				id                BIGSERIAL PRIMARY KEY,
 				payment_intent_id BIGINT NOT NULL,
-				type              TEXT NOT NULL,
+				state             TEXT NOT NULL,
 				external_id       TEXT,
 				metadata          BYTEA,
 				created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -46,17 +46,17 @@ var migrations = []cmdforge.Migration{
 					ON DELETE CASCADE
 			);
 
-			CREATE INDEX idx_payment_processes_intent_id
-			ON payment_processes(payment_intent_id);
+			CREATE INDEX idx_payment_events_intent_id
+			ON payment_events(payment_intent_id);
 
-			CREATE INDEX idx_payment_processes_external_id
-			ON payment_processes(external_id);
+			CREATE INDEX idx_payment_events_external_id
+			ON payment_events(external_id);
 		`,
 		Down: `
-			DROP INDEX IF EXISTS idx_payment_processes_external_id;
-			DROP INDEX IF EXISTS idx_payment_processes_intent_id;
+			DROP INDEX IF EXISTS idx_payment_events_external_id;
+			DROP INDEX IF EXISTS idx_payment_events_intent_id;
 			
-			DROP TABLE IF EXISTS payment_processes;
+			DROP TABLE IF EXISTS payment_events;
 		`,
 	},
 }

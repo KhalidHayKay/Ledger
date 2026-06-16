@@ -88,13 +88,13 @@ func (s *Service) Create(
 			return err
 		}
 
-		process, err := r.PaymentProcess.Create(ctx, paymentIntent.Id, PaymentStatusAuthorized, payment.AuthorizationId)
+		event, err := r.PaymentEvent.Create(ctx, paymentIntent.Id, PaymentStatusAuthorized, payment.AuthorizationId)
 		if err != nil {
 			log.Printf("Error creating payment process state: %s", err)
 			return err
 		}
 
-		paymentIntent.CurrentPaymentProcess = &process
+		paymentIntent.CurrentEvent = &event
 
 		return nil
 	})

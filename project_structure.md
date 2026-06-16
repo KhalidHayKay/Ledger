@@ -1,15 +1,15 @@
 # 📁 Ledger - Project Structure
 
-*Generated on: 09/06/2026, 20:44:28*
+_Generated on: 09/06/2026, 20:44:28_
 
 ## 📋 Quick Overview
 
-| Metric | Value |
-|--------|-------|
-| 📄 Total Files | 48 |
-| 📁 Total Folders | 18 |
-| 🌳 Max Depth | 2 levels |
-| 🛠️ Tech Stack | Docker |
+| Metric           | Value    |
+| ---------------- | -------- |
+| 📄 Total Files   | 48       |
+| 📁 Total Folders | 18       |
+| 🌳 Max Depth     | 2 levels |
+| 🛠️ Tech Stack    | Docker   |
 
 ## ⭐ Important Files
 
@@ -109,7 +109,7 @@ Ledger/
 │   │   ├── 📄 repository.go
 │   │   ├── 📄 service_test.go
 │   │   └── 📄 service.go
-│   └── 📂 paymentprocess/
+│   └── 📂 paymentevent/
 │   │   ├── 📄 pgsql_repo.go
 │   │   └── 📄 repository.go
 ├── 📄 makefile
@@ -125,6 +125,7 @@ Ledger/
 ## 📖 Legend
 
 ### File Types
+
 - ⚙️ Config: TOML files
 - 🐳 DevOps: Docker ignore
 - 📄 Other: Other files
@@ -136,6 +137,7 @@ Ledger/
 - 📖 Docs: Markdown files
 
 ### Importance Levels
+
 - 🔴 Critical: Essential project files
 - 🟡 High: Important configuration files
 - 🔵 Medium: Helpful but not essential files

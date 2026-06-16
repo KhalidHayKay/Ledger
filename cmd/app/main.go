@@ -7,8 +7,8 @@ import (
 	"ledger/app/storage"
 	"ledger/internal/bank"
 	"ledger/internal/idempotency"
+	"ledger/internal/paymentevent"
 	"ledger/internal/paymentintent"
-	"ledger/internal/paymentprocess"
 	"ledger/pkg/uow"
 	"log"
 	"net/http"
@@ -42,14 +42,14 @@ func main() {
 	idempotencyRepo := idempotency.NewRedisRepo(redis)
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	paymentProcessRepo := paymentprocess.NewPostgresRepo(pgsql)
+	paymentEventRepo := paymentevent.NewPostgresRepo(pgsql)
 
 	uow := uow.NewPgsqlUoW(pgsql)
 
 	paymentIntentRepo := paymentintent.NewPostgresRepo(pgsql)
 	paymentIntentService := paymentintent.NewService(
 		paymentIntentRepo,
-		paymentProcessRepo,
+		paymentEventRepo,
 		ficmartBankRepo,
 
 		&paymentIntentTxAdapter{u: uow},
@@ -85,8 +85,8 @@ type paymentIntentTxAdapter struct {
 func (a *paymentIntentTxAdapter) RunInTx(ctx context.Context, fn func(paymentintent.Repos) error) error {
 	return a.u.RunInTx(ctx, func(r uow.Repos) error {
 		return fn(paymentintent.Repos{
-			PaymentIntent:  r.PaymentIntent,
-			PaymentProcess: r.PaymentProcess,
+			PaymentIntent: r.PaymentIntent,
+			PaymentEvent:  r.PaymentEvent,
 		})
 	})
 }

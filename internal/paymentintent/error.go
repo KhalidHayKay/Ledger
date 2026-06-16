@@ -3,11 +3,17 @@ package paymentintent
 import "errors"
 
 var (
-	ErrNotFound            = errors.New("payment intent not found")
-	ErrReserveNotFound     = errors.New("no payment intent reserve")
+	ErrNotFound = errors.New("payment intent not found")
+
+	ErrReserveNotFound = errors.New("no payment intent reserve found")
+
 	ErrIdempotencyKeyReuse = errors.New("idempotency key reused")
-	ErrBankDeclined        = errors.New("bank declined payment")
-	ErrInconsistentState   = errors.New("payment intent state inconsistent")
-	ErrInternal            = errors.New("internal error")
-	ErrInvalidStatus       = errors.New("invalid payment intent status for this operation")
+
+	ErrBankDeclined = errors.New("bank declined payment")
+
+	ErrInternal = errors.New("internal error")
+
+	ErrOperationNotAllowed = errors.New("operation not allowed on payment intent: intent not found or not in a valid state")
+
+	ErrInconsistentState = errors.New("payment intent inconsistent with idempotency state")
 )

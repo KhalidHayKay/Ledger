@@ -5,7 +5,7 @@ import (
 	"errors"
 	"ledger/internal/bank"
 	"ledger/internal/idempotency"
-	"ledger/internal/paymentprocess"
+	"ledger/internal/paymentevent"
 	"log"
 
 	"github.com/jackc/pgx/v5"
@@ -13,8 +13,8 @@ import (
 )
 
 type Repos struct {
-	PaymentIntent  Repository
-	PaymentProcess paymentprocess.Repository
+	PaymentIntent Repository
+	PaymentEvent  paymentevent.Repository
 }
 
 type UoW interface {
@@ -23,7 +23,7 @@ type UoW interface {
 
 type Service struct {
 	repo        Repository
-	processRepo paymentprocess.Repository
+	processRepo paymentevent.Repository
 	bankRepo    bank.Repository
 
 	uow UoW
@@ -33,7 +33,7 @@ type Service struct {
 
 func NewService(
 	repo Repository,
-	processRepo paymentprocess.Repository,
+	processRepo paymentevent.Repository,
 	bankRepo bank.Repository,
 	uow UoW,
 	idempotencyService *idempotency.Service,
@@ -54,7 +54,7 @@ func (s *Service) getReserved(ctx context.Context, idempotencyKey, requestHash s
 			return nil, ErrIdempotencyKeyReuse
 		}
 
-		paymentIntent, err := s.repo.GetByPaymentRef(ctx, entry.PaymentRef)
+		paymentIntent, err := s.repo.GetByRef(ctx, entry.PaymentRef)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Printf("missing payment intent for known payment_ref: %s", entry.PaymentRef)

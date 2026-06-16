@@ -1,7 +1,7 @@
 package paymentintent
 
 import (
-	"ledger/internal/paymentprocess"
+	"ledger/internal/paymentevent"
 	"time"
 )
 
@@ -25,5 +25,5 @@ type PaymentIntent struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  *time.Time `json:"updated_at,omitempty"`
 
-	CurrentPaymentProcess *paymentprocess.PaymentProcess `json:"payment_process,omitempty"`
+	CurrentEvent *paymentevent.PaymentEvent `json:"event,omitempty"`
 }

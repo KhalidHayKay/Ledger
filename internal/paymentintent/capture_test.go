@@ -2,6 +2,6 @@ package paymentintent
 
 import "testing"
 
-func TestCaptureCreatesNewPaymentProcess(t *testing.T) {
+func TestCaptureCreatesNewPaymentEvent(t *testing.T) {
 	//
 }

@@ -2,13 +2,13 @@ package uow
 
 import (
 	"context"
+	"ledger/internal/paymentevent"
 	"ledger/internal/paymentintent"
-	"ledger/internal/paymentprocess"
 )
 
 type Repos struct {
-	PaymentIntent  paymentintent.Repository
-	PaymentProcess paymentprocess.Repository
+	PaymentIntent paymentintent.Repository
+	PaymentEvent  paymentevent.Repository
 }
 
 type UnitOfWork interface {

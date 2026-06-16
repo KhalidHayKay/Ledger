@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"ledger/internal/bank"
 	"ledger/internal/idempotency"
-	"ledger/internal/paymentprocess"
+	"ledger/internal/paymentevent"
 	"testing"
 )
 
@@ -28,7 +28,8 @@ type repoMock struct {
 	CreateFn          func(ctx context.Context, amount int, currency, orderId, customerId string) (PaymentIntent, error)
 	CreateReferenceFn func(ctx context.Context, id, generatedRef string) error
 	UpdateStateFn     func(ctx context.Context, paymentRef, state string) error
-	GetByPaymentRefFn func(ctx context.Context, paymentRef string) (PaymentIntent, error)
+	GetByRefFn        func(ctx context.Context, paymentRef string) (PaymentIntent, error)
+	GetWithEventFn    func(ctx context.Context, paymentRef, state string) (PaymentIntent, error)
 
 	calls []string
 }
@@ -48,25 +49,30 @@ func (r *repoMock) UpdateState(ctx context.Context, paymentRef, state string) er
 	return r.UpdateStateFn(ctx, paymentRef, state)
 }
 
-func (r *repoMock) GetByPaymentRef(ctx context.Context, paymentRef string) (PaymentIntent, error) {
+func (r *repoMock) GetByRef(ctx context.Context, paymentRef string) (PaymentIntent, error) {
 	r.calls = append(r.calls, getByPaymentRefCall)
-	return r.GetByPaymentRefFn(ctx, paymentRef)
+	return r.GetByRefFn(ctx, paymentRef)
 }
 
-// Payment process mocks
-type ppRepoMock struct {
-	CreateFn               func(ctx context.Context, intentId, status, bankAuthId string) (paymentprocess.PaymentProcess, error)
-	GetByIntentAndStatusFn func(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentprocess.PaymentProcess, error)
+func (r *repoMock) GetWithEvent(ctx context.Context, paymentRef, state string) (PaymentIntent, error) {
+	r.calls = append(r.calls, getByPaymentRefCall)
+	return r.GetWithEventFn(ctx, paymentRef, state)
+}
+
+// Payment event mocks
+type paymentEventRepoMock struct {
+	CreateFn               func(ctx context.Context, intentId, status, bankAuthId string) (paymentevent.PaymentEvent, error)
+	GetByIntentAndStatusFn func(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentevent.PaymentEvent, error)
 
 	calls []string
 }
 
-func (m *ppRepoMock) Create(ctx context.Context, intentId, status, bankAuthId string) (paymentprocess.PaymentProcess, error) {
+func (m *paymentEventRepoMock) Create(ctx context.Context, intentId, status, bankAuthId string) (paymentevent.PaymentEvent, error) {
 	m.calls = append(m.calls, createCall)
 	return m.CreateFn(ctx, intentId, status, bankAuthId)
 }
 
-func (m *ppRepoMock) GetByIntentAndStatus(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentprocess.PaymentProcess, error) {
+func (m *paymentEventRepoMock) GetByIntentAndStatus(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentevent.PaymentEvent, error) {
 	m.calls = append(m.calls, getByPaymentRefCall)
 	return m.GetByIntentAndStatusFn(ctx, paymentIntentId, paymentIntentStatus)
 }
@@ -144,7 +150,7 @@ func TestGetReservedHappyPath(t *testing.T) {
 	}
 
 	repo := &repoMock{
-		GetByPaymentRefFn: func(ctx context.Context, paymentRef string) (PaymentIntent, error) {
+		GetByRefFn: func(ctx context.Context, paymentRef string) (PaymentIntent, error) {
 			return PaymentIntent{
 				PaymentRef: paymentRef,
 			}, nil
@@ -161,7 +167,7 @@ func TestGetReservedHappyPath(t *testing.T) {
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &ppRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
+	service := NewService(repo, &paymentEventRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
 
 	paymentIntent, err := service.getReserved(context.Background(), "idm-key", requestHash)
 	if err != nil {
@@ -193,7 +199,7 @@ func TestGetReservedThrowsErrorOnIdempotencyKeyReuse(t *testing.T) {
 	}
 
 	repo := &repoMock{
-		GetByPaymentRefFn: func(ctx context.Context, paymentRef string) (PaymentIntent, error) {
+		GetByRefFn: func(ctx context.Context, paymentRef string) (PaymentIntent, error) {
 			t.Errorf("Expected an error boundary to block GetByPaymentRef from getting called for idempotency key reuse")
 			return PaymentIntent{}, nil
 		},
@@ -209,7 +215,7 @@ func TestGetReservedThrowsErrorOnIdempotencyKeyReuse(t *testing.T) {
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &ppRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
+	service := NewService(repo, &paymentEventRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
 
 	_, err := service.getReserved(context.Background(), "idm-key", requestHash)
 	if err == nil {
