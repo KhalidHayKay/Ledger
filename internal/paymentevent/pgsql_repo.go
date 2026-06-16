@@ -1,4 +1,4 @@
-package paymentprocess
+package paymentevent
 
 import (
 	"context"
@@ -20,14 +20,14 @@ func NewPostgresRepo(db DBTX) *PostgresRepo {
 	return &PostgresRepo{db}
 }
 
-func (r *PostgresRepo) Create(ctx context.Context, intentId, status, bankAuthId string) (PaymentProcess, error) {
-	var process PaymentProcess
+func (r *PostgresRepo) Create(ctx context.Context, intentId, status, bankAuthId string) (PaymentEvent, error) {
+	var process PaymentEvent
 	err := r.db.QueryRow(ctx, `
-		INSERT INTO payment_processes (
+		INSERT INTO payment_events (
 			payment_intent_id, type, external_id
 		)
 		VALUES ($1, $2, $3)
-		RETURNING id::text, payment_intent_id, type, external_id, metadata, created_at
+		RETURNING id::text, payment_intent_id, state, external_id, metadata, created_at
 	`,
 		intentId,
 		status,
@@ -35,63 +35,63 @@ func (r *PostgresRepo) Create(ctx context.Context, intentId, status, bankAuthId 
 	).Scan(
 		&process.Id,
 		&process.PaymentIntentId,
-		&process.Type,
+		&process.State,
 		&process.ExternalId,
 		&process.Metadata,
 		&process.CreatedAt,
 	)
 	if err != nil {
-		return PaymentProcess{}, err
+		return PaymentEvent{}, err
 	}
 
 	return process, nil
 }
 
-func (r *PostgresRepo) GetCurrentProcess(ctx context.Context, paymentIntentId, paymentIntentStatus string) (PaymentProcess, error) {
-	var process PaymentProcess
+func (r *PostgresRepo) GetCurrentProcess(ctx context.Context, paymentIntentId, paymentIntentStatus string) (PaymentEvent, error) {
+	var process PaymentEvent
 	err := r.db.QueryRow(ctx, `
 		SELECT
 			id,
 			payment_intent_id,
-			type,
+			state,
 			external_id,
 			metadata,
 			created_at
-		FROM payment_processes
+		FROM payment_events
 		WHERE payment_intent_id = $1
 			AND type = $2
 	`, paymentIntentId, paymentIntentStatus).Scan(
 		&process.Id,
 		&process.PaymentIntentId,
-		&process.Type,
+		&process.State,
 		&process.ExternalId,
 		&process.Metadata,
 		&process.CreatedAt,
 	)
 	if err != nil {
-		return PaymentProcess{}, err
+		return PaymentEvent{}, err
 	}
 
 	return process, nil
 }
 
-func (r *PostgresRepo) GetByIntentAndStatus(ctx context.Context, intentId, status string) (PaymentProcess, error) {
-	var p PaymentProcess
+func (r *PostgresRepo) GetByIntentAndStatus(ctx context.Context, intentId, status string) (PaymentEvent, error) {
+	var p PaymentEvent
 	err := r.db.QueryRow(ctx, `
-        SELECT id, payment_intent_id, type, external_id, created_at
-        FROM payment_processes
+        SELECT id, payment_intent_id, state, external_id, created_at
+        FROM payment_events
         WHERE payment_intent_id = $1
           AND type = $2
     `, intentId, status).Scan(
 		&p.Id,
 		&p.PaymentIntentId,
-		&p.Type,
+		&p.State,
 		&p.ExternalId,
 		&p.CreatedAt,
 	)
 
 	if err != nil {
-		return PaymentProcess{}, err
+		return PaymentEvent{}, err
 	}
 
 	return p, nil

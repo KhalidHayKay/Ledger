@@ -2,8 +2,8 @@ package uow
 
 import (
 	"context"
+	"ledger/internal/paymentevent"
 	"ledger/internal/paymentintent"
-	"ledger/internal/paymentprocess"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -19,8 +19,8 @@ func (u *PgsqlUoW) RunInTx(ctx context.Context, fn func(Repos) error) error {
 	}
 
 	repos := Repos{
-		PaymentIntent:  paymentintent.NewPostgresRepo(tx),
-		PaymentProcess: paymentprocess.NewPostgresRepo(tx),
+		PaymentIntent: paymentintent.NewPostgresRepo(tx),
+		PaymentEvent:  paymentevent.NewPostgresRepo(tx),
 	}
 
 	if err := fn(repos); err != nil {

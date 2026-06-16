@@ -20,30 +20,18 @@ func (s *Service) Capture(ctx context.Context,
 		return *reservedPaymentIntent, true, nil
 	}
 
-	paymentIntent, err := s.repo.GetByPaymentRef(ctx, paymentRef)
+	paymentIntent, err := s.repo.GetWithEvent(ctx, paymentRef, PaymentStatusAuthorized)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			log.Printf("Payment intent not found for payment reference: %s", paymentRef)
-			return PaymentIntent{}, false, ErrNotFound
+			log.Printf("operation not allowed: intent=%s, required_status=%s", paymentRef, PaymentStatusAuthorized)
+			return PaymentIntent{}, false, ErrOperationNotAllowed
 		}
 
 		log.Printf("Error retrieving payment intent for payment reference %s: %s", paymentRef, err)
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	paymentProcess, err := s.processRepo.GetByIntentAndStatus(ctx, paymentIntent.Id, paymentIntent.Status)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			log.Printf("No payment process found with payment reference id %s and status %s",
-				paymentIntent.Id, paymentIntent.Status)
-			return PaymentIntent{}, false, ErrNotFound
-		}
-
-		log.Printf("Error retrieving payment intent for payment reference %s: %s", paymentRef, err)
-		return PaymentIntent{}, false, ErrInternal
-	}
-
-	payment, err := s.bankRepo.Capture(ctx, idempotencyKey, paymentProcess.ExternalId, amount)
+	payment, err := s.bankRepo.Capture(ctx, idempotencyKey, paymentIntent.CurrentEvent.ExternalId, amount)
 	if err != nil {
 		log.Printf("Bank capture failed for payment reference %s: %s", paymentRef, err)
 		return PaymentIntent{}, false, ErrBankDeclined
@@ -56,14 +44,14 @@ func (s *Service) Capture(ctx context.Context,
 			return ErrInternal
 		}
 
-		process, err := r.PaymentProcess.Create(ctx, paymentIntent.Id, PaymentStatusCaptured, payment.CaptureId)
+		process, err := r.PaymentEvent.Create(ctx, paymentIntent.Id, PaymentStatusCaptured, payment.CaptureId)
 		if err != nil {
 			log.Printf("Error creating payment process: %s", err)
 			return ErrInternal
 		}
 
 		paymentIntent.Amount = payment.Amount
-		paymentIntent.CurrentPaymentProcess = &process
+		paymentIntent.CurrentEvent = &process
 
 		return nil
 	})

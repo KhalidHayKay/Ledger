@@ -7,7 +7,7 @@ import (
 	"ledger/app/config"
 	"ledger/internal/bank"
 	"ledger/internal/idempotency"
-	"ledger/internal/paymentprocess"
+	"ledger/internal/paymentevent"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
@@ -30,7 +30,7 @@ func TestCreateReplaysExistingPaymentIntent(t *testing.T) {
 	}
 
 	repo := &repoMock{
-		GetByPaymentRefFn: func(ctx context.Context, paymentRef string) (PaymentIntent, error) {
+		GetByRefFn: func(ctx context.Context, paymentRef string) (PaymentIntent, error) {
 			return PaymentIntent{}, nil
 		},
 		CreateFn: func(ctx context.Context, amount int, currency, orderId, customerId string) (PaymentIntent, error) {
@@ -48,7 +48,7 @@ func TestCreateReplaysExistingPaymentIntent(t *testing.T) {
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &ppRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
+	service := NewService(repo, &paymentEventRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
 
 	_, relayed, err := service.Create(
 		context.Background(),
@@ -111,9 +111,9 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 				},
 			}
 
-			ppRepo := &ppRepoMock{
-				CreateFn: func(ctx context.Context, intentId, status, bankAuthId string) (paymentprocess.PaymentProcess, error) {
-					return paymentprocess.PaymentProcess{}, nil
+			ppRepo := &paymentEventRepoMock{
+				CreateFn: func(ctx context.Context, intentId, status, bankAuthId string) (paymentevent.PaymentEvent, error) {
+					return paymentevent.PaymentEvent{}, nil
 				},
 			}
 
@@ -122,13 +122,13 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 			uow := &uowMock{
 				RunInTxFn: func(ctx context.Context, fn func(Repos) error) error {
 					return fn(Repos{
-						PaymentIntent:  repo,
-						PaymentProcess: ppRepo,
+						PaymentIntent: repo,
+						PaymentEvent:  ppRepo,
 					})
 				},
 			}
 
-			service := NewService(repo, &ppRepoMock{}, bankRepo, uow, idempotencyService)
+			service := NewService(repo, &paymentEventRepoMock{}, bankRepo, uow, idempotencyService)
 
 			paymentIntent, relayed, err := service.Create(
 				context.Background(),
