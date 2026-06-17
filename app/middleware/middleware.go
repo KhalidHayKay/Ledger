@@ -10,10 +10,10 @@ func NewMiddleware() *Middleware {
 
 func (m *Middleware) EnsureIndempotencyKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		idempotencyKey := r.Header.Get("Idempotency-Key")
+		idempotencyKey := r.Header.Get("X-Idempotency-Key")
 
 		if idempotencyKey == "" {
-			http.Error(w, "Idempotency-Key header must be set", http.StatusBadRequest)
+			http.Error(w, "X-Idempotency-Key header must be set", http.StatusBadRequest)
 			return
 		}
 

@@ -20,7 +20,7 @@ func (s *Service) Cancel(ctx context.Context, idempotencyKey, paymentRef string)
 		return "", ErrInternal
 	}
 
-	payment, err := s.bankRepo.Void(ctx, idempotencyKey, paymentIntent.CurrentEvent.ExternalId)
+	payment, err := s.bankRepo.Void(ctx, idempotencyKey, paymentIntent.CurrentEvent.ExternalStateId)
 	if err != nil {
 		log.Printf("Bank failed to void payment: %s", err)
 		return "", ErrBankDeclined

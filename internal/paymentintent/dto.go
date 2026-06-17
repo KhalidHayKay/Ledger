@@ -51,7 +51,7 @@ func (r *CreatePaymentIntentRequest) Validate() error {
 
 type CapturePaymentIntentRequest struct {
 	PaymentRef string `json:"payment_ref"`
-	Amount     string `json:"amount"`
+	Amount     int    `json:"amount"`
 }
 
 func (r *CapturePaymentIntentRequest) Validate() error {

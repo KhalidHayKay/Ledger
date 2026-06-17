@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Service) Refund(ctx context.Context, idempotencyKey, amount, paymentRef string) (string, error) {
+func (s *Service) Refund(ctx context.Context, idempotencyKey, paymentRef string, amount int) (string, error) {
 	paymentIntent, err := s.repo.GetWithEvent(ctx, paymentRef, PaymentStatusCaptured)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -20,7 +20,7 @@ func (s *Service) Refund(ctx context.Context, idempotencyKey, amount, paymentRef
 		return "", ErrInternal
 	}
 
-	payment, err := s.bankRepo.Refund(ctx, idempotencyKey, paymentIntent.CurrentEvent.ExternalId, amount)
+	payment, err := s.bankRepo.Refund(ctx, idempotencyKey, paymentIntent.CurrentEvent.ExternalStateId, amount)
 	if err != nil {
 		log.Printf("Bank refund failed: %s", err)
 	}

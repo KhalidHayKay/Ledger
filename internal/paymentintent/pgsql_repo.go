@@ -155,7 +155,7 @@ func (r *PostgresRepo) GetWithEvent(ctx context.Context, paymentRef, state strin
 			pe.id,
 			pe.payment_intent_id,
 			pe.state,
-			pe.external_id,
+			pe.external_state_id,
 			pe.metadata,
 			pe.created_at
 		FROM payment_intents pi
@@ -183,7 +183,7 @@ func (r *PostgresRepo) GetWithEvent(ctx context.Context, paymentRef, state strin
 		&pe.Id,
 		&pe.PaymentIntentId,
 		&pe.State,
-		&pe.ExternalId,
+		&pe.ExternalStateId,
 		&pe.Metadata,
 		&pe.CreatedAt,
 	)

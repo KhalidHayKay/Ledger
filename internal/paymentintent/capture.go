@@ -9,10 +9,10 @@ import (
 )
 
 func (s *Service) Capture(ctx context.Context,
-	idempotencyKey, requestHash, paymentRef, amount string,
+	idempotencyKey, requestHash, paymentRef string, amount int,
 ) (PaymentIntent, bool, error) {
 	reservedPaymentIntent, err := s.getReserved(ctx, idempotencyKey, requestHash)
-	if err != nil && !errors.Is(err, ErrReserveNotFound) {
+	if err != nil {
 		return PaymentIntent{}, false, err
 	}
 
@@ -31,7 +31,8 @@ func (s *Service) Capture(ctx context.Context,
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	payment, err := s.bankRepo.Capture(ctx, idempotencyKey, paymentIntent.CurrentEvent.ExternalId, amount)
+	payment, err := s.bankRepo.Capture(ctx, idempotencyKey, paymentIntent.CurrentEvent.ExternalStateId, amount)
+	log.Println("paymetttttt: ", payment)
 	if err != nil {
 		log.Printf("Bank capture failed for payment reference %s: %s", paymentRef, err)
 		return PaymentIntent{}, false, ErrBankDeclined
@@ -50,8 +51,9 @@ func (s *Service) Capture(ctx context.Context,
 			return ErrInternal
 		}
 
-		paymentIntent.Amount = payment.Amount
-		paymentIntent.CurrentEvent = &process
+		paymentIntent.Status = process.State
+		// remove state object from getting returned to client
+		paymentIntent.CurrentEvent = nil
 
 		return nil
 	})
