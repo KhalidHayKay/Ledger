@@ -4,9 +4,8 @@ import "time"
 
 type ficMartAuthorizeResponse struct {
 	Amount          int       `json:"amount"`
-	AuthorizationID string    `json:"authorization_id"`
-	PaymentId       string    `json:"payment"`
 	Currency        string    `json:"currency"`
+	AuthorizationId string    `json:"authorization_id"`
 	Status          string    `json:"status"`
 	CreatedAt       time.Time `json:"created_at"`
 	ExpiresAt       time.Time `json:"expires_at"`
@@ -14,7 +13,7 @@ type ficMartAuthorizeResponse struct {
 
 func (r ficMartAuthorizeResponse) ToPayment() Payment {
 	return Payment{
-		AuthorizationId: r.AuthorizationID,
+		AuthorizationId: r.AuthorizationId,
 		Amount:          r.Amount,
 		Currency:        r.Currency,
 		Status:          r.Status,
@@ -23,28 +22,28 @@ func (r ficMartAuthorizeResponse) ToPayment() Payment {
 	}
 }
 
-// type ficMartCaptureResponse struct {
-// 	Amount          int       `json:"amount"`
-// 	AuthorizationID string    `json:"authorization_id"`
-// 	CaptureId       string    `json:"capture_id"`
-// 	CapturedAt      time.Time `json:"captured_at"`
-// 	Currency        string    `json:"currency"`
-// 	Status          string    `json:"status"`
-// }
+type ficMartCaptureResponse struct {
+	Amount          int       `json:"amount"`
+	Currency        string    `json:"currency"`
+	AuthorizationId string    `json:"authorization_id"`
+	Status          string    `json:"status"`
+	CaptureId       string    `json:"capture_id"`
+	CapturedAt      time.Time `json:"captured_at"`
+}
 
-// func (r ficMartCaptureResponse) ToPayment() Payment {
-// 	return Payment{
-// 		Amount:          r.Amount,
-// 		AuthorizationId: r.AuthorizationID,
-// 		CaptureId:       r.CaptureId,
-// 		CapturedAt:      &r.CapturedAt,
-// 		Currency:        r.Currency,
-// 		Status:          r.Status,
-// 	}
-// }
+func (r ficMartCaptureResponse) ToPayment() Payment {
+	return Payment{
+		Amount:          r.Amount,
+		Currency:        r.Currency,
+		AuthorizationId: r.AuthorizationId,
+		Status:          r.Status,
+		CaptureId:       r.CaptureId,
+		CapturedAt:      &r.CapturedAt,
+	}
+}
 
 type ficMartVoidResponse struct {
-	AuthorizationID string    `json:"authorization_id"`
+	AuthorizationId string    `json:"authorization_id"`
 	Status          string    `json:"status"`
 	VoidId          string    `json:"void_id"`
 	VoidedAt        time.Time `json:"voided_at"`
@@ -52,7 +51,7 @@ type ficMartVoidResponse struct {
 
 func (r ficMartVoidResponse) ToPayment() Payment {
 	return Payment{
-		AuthorizationId: r.AuthorizationID,
+		AuthorizationId: r.AuthorizationId,
 		Status:          r.Status,
 		VoidId:          r.VoidId,
 		VoidedAt:        &r.VoidedAt,
@@ -61,20 +60,20 @@ func (r ficMartVoidResponse) ToPayment() Payment {
 
 type ficMartRefundResponse struct {
 	Amount     int       `json:"amount"`
-	CaptureId  string    `json:"capture_id"`
 	Currency   string    `json:"currency"`
+	CaptureId  string    `json:"capture_id"`
+	Status     string    `json:"status"`
 	RefundId   string    `json:"refund_id"`
 	RefundedAt time.Time `json:"refunded_at"`
-	Status     string    `json:"status"`
 }
 
 func (r ficMartRefundResponse) ToPayment() Payment {
 	return Payment{
 		Amount:     r.Amount,
-		CaptureId:  r.CaptureId,
 		Currency:   r.Currency,
+		CaptureId:  r.CaptureId,
+		Status:     r.Status,
 		RefundId:   r.RefundId,
 		RefundedAt: &r.RefundedAt,
-		Status:     r.Status,
 	}
 }

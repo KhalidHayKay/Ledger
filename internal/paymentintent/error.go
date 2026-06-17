@@ -5,8 +5,6 @@ import "errors"
 var (
 	ErrNotFound = errors.New("payment intent not found")
 
-	ErrReserveNotFound = errors.New("no payment intent reserve found")
-
 	ErrIdempotencyKeyReuse = errors.New("idempotency key reused")
 
 	ErrBankDeclined = errors.New("bank declined payment")

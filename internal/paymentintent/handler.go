@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"ledger/app/render"
+	"log"
 	"net/http"
 )
 
@@ -24,6 +25,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req CreatePaymentIntentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding request body: %s", err)
 		render.ErrorJSON(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -35,13 +37,14 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	requestHash, err := hashRequestBody(req)
 	if err != nil {
+		log.Printf("Error hashing request body: %s", err)
 		render.ErrorJSON(w, "Unable to hash request body", http.StatusInternalServerError)
 		return
 	}
 
 	paymentIntent, replayed, err := h.service.Create(
 		r.Context(),
-		r.Header.Get("Idempotency-Key"),
+		r.Header.Get("X-Idempotency-Key"),
 		requestHash,
 		CreateInput{
 			Card: Card{
@@ -91,6 +94,7 @@ func (h *Handler) Capture(w http.ResponseWriter, r *http.Request) {
 
 	var req CapturePaymentIntentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding request body: %s", err)
 		render.ErrorJSON(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -102,12 +106,13 @@ func (h *Handler) Capture(w http.ResponseWriter, r *http.Request) {
 
 	requestHash, err := hashRequestBody(req)
 	if err != nil {
+		log.Printf("Error hashing request body: %s", err)
 		render.ErrorJSON(w, "Unable to hash request body", http.StatusInternalServerError)
 		return
 	}
 
 	paymentIntent, replayed, err := h.service.Capture(
-		r.Context(), r.Header.Get("Idempotency-Key"),
+		r.Context(), r.Header.Get("X-Idempotency-Key"),
 		requestHash, req.PaymentRef, req.Amount,
 	)
 	if err != nil {
@@ -124,6 +129,9 @@ func (h *Handler) Capture(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, ErrInternal):
 			render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
 
+		case errors.Is(err, ErrOperationNotAllowed):
+			render.ErrorJSON(w, err.Error(), http.StatusForbidden)
+
 		default:
 			render.ErrorJSON(w, "Unexpected error", http.StatusInternalServerError)
 		}
@@ -135,7 +143,7 @@ func (h *Handler) Capture(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Idempotent-Replayed", "true")
 	}
 
-	render.JSON(w, http.StatusCreated, "Payment Intent created successfully", paymentIntent)
+	render.JSON(w, http.StatusCreated, "Payment Intent captured successfully", paymentIntent)
 }
 
 func hashRequestBody(body any) (string, error) {

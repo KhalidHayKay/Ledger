@@ -2,7 +2,6 @@ package paymentintent
 
 import (
 	"context"
-	"errors"
 	"ledger/internal/bank"
 	"ledger/pkg/utils"
 	"log"
@@ -13,7 +12,7 @@ func (s *Service) Create(
 	ctx context.Context, idempotencyKey, requestHash string, input CreateInput,
 ) (PaymentIntent, bool, error) {
 	reservedPaymentIntent, err := s.getReserved(ctx, idempotencyKey, requestHash)
-	if err != nil && !errors.Is(err, ErrReserveNotFound) {
+	if err != nil {
 		return PaymentIntent{}, false, err
 	}
 
@@ -88,13 +87,13 @@ func (s *Service) Create(
 			return err
 		}
 
-		event, err := r.PaymentEvent.Create(ctx, paymentIntent.Id, PaymentStatusAuthorized, payment.AuthorizationId)
+		process, err := r.PaymentEvent.Create(ctx, paymentIntent.Id, PaymentStatusAuthorized, payment.AuthorizationId)
 		if err != nil {
 			log.Printf("Error creating payment process state: %s", err)
 			return err
 		}
 
-		paymentIntent.CurrentEvent = &event
+		paymentIntent.Status = process.State
 
 		return nil
 	})

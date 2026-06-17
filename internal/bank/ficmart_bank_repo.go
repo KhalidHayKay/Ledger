@@ -37,7 +37,7 @@ func (r *FicMartBankRepo) Authorize(ctx context.Context, idempotencyKey string, 
 
 	body, err := r.makePostRequest(ctx, EndpointAuthorize, data, idempotencyKey)
 	if err != nil {
-		return Payment{}, nil
+		return Payment{}, err
 	}
 
 	var resData ficMartAuthorizeResponse
@@ -45,25 +45,27 @@ func (r *FicMartBankRepo) Authorize(ctx context.Context, idempotencyKey string, 
 		return Payment{}, err
 	}
 
+	log.Println("capture object in drom bank: ", resData)
 	return resData.ToPayment(), nil
 }
 
-func (r *FicMartBankRepo) Capture(ctx context.Context, idempotencyKey, authorizationId, amount string) (Payment, error) {
+func (r *FicMartBankRepo) Capture(ctx context.Context, idempotencyKey, authorizationId string, amount int) (Payment, error) {
 	data := map[string]any{
 		"amount":           amount,
 		"authorization_id": authorizationId,
 	}
 
-	body, err := r.makePostRequest(ctx, EndpointAuthorize, data, idempotencyKey)
+	body, err := r.makePostRequest(ctx, EndpointCapture, data, idempotencyKey)
 	if err != nil {
-		return Payment{}, nil
+		return Payment{}, err
 	}
 
-	var resData ficMartAuthorizeResponse
+	var resData ficMartCaptureResponse
 	if err := json.Unmarshal(body, &resData); err != nil {
 		return Payment{}, err
 	}
 
+	log.Println("capture object in drom bank: ", resData)
 	return resData.ToPayment(), nil
 }
 
@@ -74,7 +76,7 @@ func (r *FicMartBankRepo) Void(ctx context.Context, idempotencyKey, authorizatio
 
 	body, err := r.makePostRequest(ctx, EndpointVoid, data, idempotencyKey)
 	if err != nil {
-		return Payment{}, nil
+		return Payment{}, err
 	}
 
 	var resData ficMartVoidResponse
@@ -85,7 +87,7 @@ func (r *FicMartBankRepo) Void(ctx context.Context, idempotencyKey, authorizatio
 	return resData.ToPayment(), nil
 }
 
-func (r *FicMartBankRepo) Refund(ctx context.Context, idempotencyKey, captureId, amount string) (Payment, error) {
+func (r *FicMartBankRepo) Refund(ctx context.Context, idempotencyKey, captureId string, amount int) (Payment, error) {
 	data := map[string]any{
 		"capture_id": captureId,
 		"amount":     amount,
@@ -93,7 +95,7 @@ func (r *FicMartBankRepo) Refund(ctx context.Context, idempotencyKey, captureId,
 
 	body, err := r.makePostRequest(ctx, EndpointRefund, data, idempotencyKey)
 	if err != nil {
-		return Payment{}, nil
+		return Payment{}, err
 	}
 
 	var resData ficMartRefundResponse

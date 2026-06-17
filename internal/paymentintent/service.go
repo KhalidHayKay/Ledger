@@ -22,9 +22,9 @@ type UoW interface {
 }
 
 type Service struct {
-	repo        Repository
-	processRepo paymentevent.Repository
-	bankRepo    bank.Repository
+	repo      Repository
+	eventRepo paymentevent.Repository
+	bankRepo  bank.Repository
 
 	uow UoW
 
@@ -48,25 +48,25 @@ func (s *Service) getReserved(ctx context.Context, idempotencyKey, requestHash s
 		return nil, ErrInternal
 	}
 
-	if entry != nil {
-		if entry.RequestHash != requestHash {
-			log.Printf("Idempotency key reuse with different request hash. Key: %s", idempotencyKey)
-			return nil, ErrIdempotencyKeyReuse
-		}
-
-		paymentIntent, err := s.repo.GetByRef(ctx, entry.PaymentRef)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				log.Printf("missing payment intent for known payment_ref: %s", entry.PaymentRef)
-				return nil, ErrInconsistentState
-			}
-
-			log.Println("failed to get payment intent for payment ref: ", entry.PaymentRef, " error: ", err)
-			return nil, ErrInternal
-		}
-
-		return &paymentIntent, nil
+	if entry == nil {
+		return nil, nil
 	}
 
-	return nil, ErrReserveNotFound
+	if entry.RequestHash != requestHash {
+		log.Printf("Idempotency key reuse with different request hash. Key: %s", idempotencyKey)
+		return nil, ErrIdempotencyKeyReuse
+	}
+
+	pi, err := s.repo.GetByRef(ctx, entry.PaymentRef)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			log.Printf("missing payment intent for known payment_ref: %s", entry.PaymentRef)
+			return nil, ErrInconsistentState
+		}
+
+		log.Println("failed to get payment intent for payment ref: ", entry.PaymentRef, " error: ", err)
+		return nil, ErrInternal
+	}
+
+	return &pi, nil
 }

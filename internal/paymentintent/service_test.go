@@ -61,28 +61,28 @@ func (r *repoMock) GetWithEvent(ctx context.Context, paymentRef, state string) (
 
 // Payment event mocks
 type paymentEventRepoMock struct {
-	CreateFn               func(ctx context.Context, intentId, status, bankAuthId string) (paymentevent.PaymentEvent, error)
+	CreateFn               func(ctx context.Context, intentId, status, providerStateId string) (paymentevent.PaymentEvent, error)
 	GetByIntentAndStatusFn func(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentevent.PaymentEvent, error)
 
 	calls []string
 }
 
-func (m *paymentEventRepoMock) Create(ctx context.Context, intentId, status, bankAuthId string) (paymentevent.PaymentEvent, error) {
-	m.calls = append(m.calls, createCall)
-	return m.CreateFn(ctx, intentId, status, bankAuthId)
+func (r *paymentEventRepoMock) Create(ctx context.Context, intentId, status, providerStateId string) (paymentevent.PaymentEvent, error) {
+	r.calls = append(r.calls, createCall)
+	return r.CreateFn(ctx, intentId, status, providerStateId)
 }
 
-func (m *paymentEventRepoMock) GetByIntentAndStatus(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentevent.PaymentEvent, error) {
-	m.calls = append(m.calls, getByPaymentRefCall)
-	return m.GetByIntentAndStatusFn(ctx, paymentIntentId, paymentIntentStatus)
+func (r *paymentEventRepoMock) GetByIntentAndStatus(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentevent.PaymentEvent, error) {
+	r.calls = append(r.calls, getByPaymentRefCall)
+	return r.GetByIntentAndStatusFn(ctx, paymentIntentId, paymentIntentStatus)
 }
 
 // Bank Repo Mocks
 type bankRepoMock struct {
 	AuthorizeFn func(ctx context.Context, idempotencyKey string, input bank.AuthorizeInput) (bank.Payment, error)
-	CaptureFn   func(ctx context.Context, idempotencyKey, authorizationId, amount string) (bank.Payment, error)
+	CaptureFn   func(ctx context.Context, idempotencyKey, authorizationId string, amount int) (bank.Payment, error)
 	VoidFn      func(ctx context.Context, idempotencyKey, authorizationId string) (bank.Payment, error)
-	RefundFn    func(ctx context.Context, idempotencyKey, captureId, amount string) (bank.Payment, error)
+	RefundFn    func(ctx context.Context, idempotencyKey, captureId string, amount int) (bank.Payment, error)
 
 	calls []string
 }
@@ -92,7 +92,7 @@ func (r *bankRepoMock) Authorize(ctx context.Context, idempotencyKey string, inp
 	return r.AuthorizeFn(ctx, idempotencyKey, input)
 }
 
-func (r *bankRepoMock) Capture(ctx context.Context, idempotencyKey, authorizationId, amount string) (bank.Payment, error) {
+func (r *bankRepoMock) Capture(ctx context.Context, idempotencyKey, authorizationId string, amount int) (bank.Payment, error) {
 	r.calls = append(r.calls, captureCall)
 	return r.CaptureFn(ctx, idempotencyKey, authorizationId, amount)
 }
@@ -102,7 +102,7 @@ func (r *bankRepoMock) Void(ctx context.Context, idempotencyKey, authorizationId
 	return r.VoidFn(ctx, idempotencyKey, authorizationId)
 }
 
-func (r *bankRepoMock) Refund(ctx context.Context, idempotencyKey, captureId, amount string) (bank.Payment, error) {
+func (r *bankRepoMock) Refund(ctx context.Context, idempotencyKey, captureId string, amount int) (bank.Payment, error) {
 	r.calls = append(r.calls, refundCall)
 	return r.RefundFn(ctx, idempotencyKey, captureId, amount)
 }
@@ -130,8 +130,8 @@ type uowMock struct {
 	RunInTxFn func(ctx context.Context, fn func(Repos) error) error
 }
 
-func (m *uowMock) RunInTx(ctx context.Context, fn func(Repos) error) error {
-	return m.RunInTxFn(ctx, fn)
+func (u *uowMock) RunInTx(ctx context.Context, fn func(Repos) error) error {
+	return u.RunInTxFn(ctx, fn)
 }
 
 func TestGetReservedHappyPath(t *testing.T) {
