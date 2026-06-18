@@ -30,7 +30,7 @@ func (c CardR) Validate() error {
 	)
 }
 
-type CreatePaymentIntentRequest struct {
+type CreateRequest struct {
 	Card       *Card  `json:"card"`
 	Amount     int    `json:"amount"`
 	Currency   string `json:"currency"`
@@ -38,7 +38,7 @@ type CreatePaymentIntentRequest struct {
 	CustomerId string `json:"customer_id"`
 }
 
-func (r *CreatePaymentIntentRequest) Validate() error {
+func (r *CreateRequest) Validate() error {
 	return validation.ValidateStruct(
 		r,
 		validation.Field(&r.Card, validation.Required),
@@ -49,16 +49,40 @@ func (r *CreatePaymentIntentRequest) Validate() error {
 	)
 }
 
-type CapturePaymentIntentRequest struct {
+type CaptureRequest struct {
 	PaymentRef string `json:"payment_ref"`
 	Amount     int    `json:"amount"`
 }
 
-func (r *CapturePaymentIntentRequest) Validate() error {
+func (r *CaptureRequest) Validate() error {
 	return validation.ValidateStruct(
 		r,
 		validation.Field(&r.PaymentRef, validation.Required),
 		validation.Field(&r.Amount, validation.Required),
+	)
+}
+
+type RefundRequest struct {
+	PaymentRef string `json:"payment_ref"`
+	Amount     int    `json:"amount"`
+}
+
+func (r *RefundRequest) Validate() error {
+	return validation.ValidateStruct(
+		r,
+		validation.Field(&r.PaymentRef, validation.Required),
+		validation.Field(&r.Amount, validation.Required),
+	)
+}
+
+type CencelRequest struct {
+	PaymentRef string `json:"payment_ref"`
+}
+
+func (r *CencelRequest) Validate() error {
+	return validation.ValidateStruct(
+		r,
+		validation.Field(&r.PaymentRef, validation.Required),
 	)
 }
 

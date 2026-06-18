@@ -169,7 +169,7 @@ func TestGetReservedHappyPath(t *testing.T) {
 
 	service := NewService(repo, &paymentEventRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
 
-	paymentIntent, err := service.getReserved(context.Background(), "idm-key", requestHash)
+	paymentIntent, err := service.getReservedIntent(context.Background(), "idm-key", requestHash)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -217,7 +217,7 @@ func TestGetReservedThrowsErrorOnIdempotencyKeyReuse(t *testing.T) {
 
 	service := NewService(repo, &paymentEventRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
 
-	_, err := service.getReserved(context.Background(), "idm-key", requestHash)
+	_, err := service.getReservedIntent(context.Background(), "idm-key", requestHash)
 	if err == nil {
 		t.Fatalf("Expected error due to idempotency key reuse with different request hash, got nil")
 	}

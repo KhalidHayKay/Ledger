@@ -11,16 +11,16 @@ import (
 func (s *Service) Capture(ctx context.Context,
 	idempotencyKey, requestHash, paymentRef string, amount int,
 ) (PaymentIntent, bool, error) {
-	reservedPaymentIntent, err := s.getReserved(ctx, idempotencyKey, requestHash)
+	reservedPI, err := s.getReservedIntent(ctx, idempotencyKey, requestHash)
 	if err != nil {
 		return PaymentIntent{}, false, err
 	}
 
-	if reservedPaymentIntent != nil {
-		return *reservedPaymentIntent, true, nil
+	if reservedPI != nil {
+		return *reservedPI, true, nil
 	}
 
-	paymentIntent, err := s.repo.GetWithEvent(ctx, paymentRef, PaymentStatusAuthorized)
+	pi, err := s.repo.GetWithEvent(ctx, paymentRef, PaymentStatusAuthorized)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			log.Printf("operation not allowed: intent=%s, required_status=%s", paymentRef, PaymentStatusAuthorized)
@@ -31,29 +31,27 @@ func (s *Service) Capture(ctx context.Context,
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	payment, err := s.bankRepo.Capture(ctx, idempotencyKey, paymentIntent.CurrentEvent.ExternalStateId, amount)
-	log.Println("paymetttttt: ", payment)
+	payment, err := s.bankRepo.Capture(ctx, idempotencyKey, pi.CurrentEvent.ExternalStateId, amount)
 	if err != nil {
 		log.Printf("Bank capture failed for payment reference %s: %s", paymentRef, err)
 		return PaymentIntent{}, false, ErrBankDeclined
 	}
 
 	err = s.uow.RunInTx(ctx, func(r Repos) error {
-		err = r.PaymentIntent.UpdateState(ctx, paymentRef, PaymentStatusCaptured)
+		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCaptured, payment.CaptureId)
+		if err != nil {
+			log.Printf("Error creating payment event: %s", err)
+			return ErrInternal
+		}
+
+		err = r.PaymentIntent.UpdateState(ctx, paymentRef, event.State)
 		if err != nil {
 			log.Printf("Error updating bank capture for payment reference %s: %s", paymentRef, err)
 			return ErrInternal
 		}
 
-		process, err := r.PaymentEvent.Create(ctx, paymentIntent.Id, PaymentStatusCaptured, payment.CaptureId)
-		if err != nil {
-			log.Printf("Error creating payment process: %s", err)
-			return ErrInternal
-		}
-
-		paymentIntent.Status = process.State
-		// remove state object from getting returned to client
-		paymentIntent.CurrentEvent = nil
+		pi.Status = event.State
+		pi.CurrentEvent = nil
 
 		return nil
 	})
@@ -64,5 +62,5 @@ func (s *Service) Capture(ctx context.Context,
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	return paymentIntent, false, nil
+	return pi, false, nil
 }
