@@ -40,7 +40,7 @@ func (s *Service) Cancel(ctx context.Context,
 	err = s.uow.RunInTx(ctx, func(r Repos) error {
 		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCanceled, payment.VoidId)
 		if err != nil {
-			return nil
+			return err
 		}
 
 		err = r.PaymentIntent.UpdateState(ctx, pi.PaymentRef, event.State)
@@ -54,11 +54,15 @@ func (s *Service) Cancel(ctx context.Context,
 		return nil
 	})
 	if err != nil {
-		log.Printf("Error updating payment intent state to %v: %s", PaymentStatusCanceled, err)
-		return PaymentIntent{}, false, err
+		log.Printf("Error creating payment event for state to %v: %s", PaymentStatusCanceled, err)
+		return PaymentIntent{}, false, ErrInternal
 	}
 
 	err = s.idempotencyService.ReserveKey(ctx, idempotencyKey, requestHash, pi.PaymentRef)
+	if err != nil {
+		log.Printf("Error reserving refunded payment intent: %s", err)
+		return PaymentIntent{}, false, ErrInternal
+	}
 
 	return pi, false, nil
 }
