@@ -33,15 +33,15 @@ type Service struct {
 
 func NewService(
 	repo Repository,
-	processRepo paymentevent.Repository,
+	paymentEventRepo paymentevent.Repository,
 	bankRepo bank.Repository,
 	uow UoW,
 	idempotencyService *idempotency.Service,
 ) *Service {
-	return &Service{repo, processRepo, bankRepo, uow, idempotencyService}
+	return &Service{repo, paymentEventRepo, bankRepo, uow, idempotencyService}
 }
 
-func (s *Service) getReserved(ctx context.Context, idempotencyKey, requestHash string) (*PaymentIntent, error) {
+func (s *Service) getReservedIntent(ctx context.Context, idempotencyKey, requestHash string) (*PaymentIntent, error) {
 	entry, err := s.idempotencyService.GetKeyReserve(ctx, idempotencyKey)
 	if err != nil && !errors.Is(err, redis.Nil) {
 		log.Println("Redis internal error:", err)

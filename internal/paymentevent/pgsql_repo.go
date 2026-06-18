@@ -21,7 +21,7 @@ func NewPostgresRepo(db DBTX) *PostgresRepo {
 }
 
 func (r *PostgresRepo) Create(ctx context.Context, intentId, status, providerStateId string) (PaymentEvent, error) {
-	var process PaymentEvent
+	var event PaymentEvent
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO payment_events (
 			payment_intent_id, state, external_state_id
@@ -33,18 +33,18 @@ func (r *PostgresRepo) Create(ctx context.Context, intentId, status, providerSta
 		status,
 		providerStateId,
 	).Scan(
-		&process.Id,
-		&process.PaymentIntentId,
-		&process.State,
-		&process.ExternalStateId,
-		&process.Metadata,
-		&process.CreatedAt,
+		&event.Id,
+		&event.PaymentIntentId,
+		&event.State,
+		&event.ExternalStateId,
+		&event.Metadata,
+		&event.CreatedAt,
 	)
 	if err != nil {
 		return PaymentEvent{}, err
 	}
 
-	return process, nil
+	return event, nil
 }
 
 func (r *PostgresRepo) GetByIntentAndStatus(ctx context.Context, intentId, status string) (PaymentEvent, error) {
