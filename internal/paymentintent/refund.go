@@ -55,7 +55,7 @@ func (s *Service) Refund(ctx context.Context,
 		return nil
 	})
 	if err != nil {
-		log.Printf("Error updating payment intent state to %v: %s", PaymentStatusRefunded, err)
+		log.Printf("Error creating payment event for state to %v: %s", PaymentStatusRefunded, err)
 		return PaymentIntent{}, false, ErrInternal
 	}
 
