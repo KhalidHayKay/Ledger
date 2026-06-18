@@ -66,6 +66,8 @@ func main() {
 
 	router.Post("/payment/intent", paymentIntentHandler.Create)
 	router.Post("/payment/intent/capture", paymentIntentHandler.Capture)
+	router.Post("/payment/intent/refund", paymentIntentHandler.Refund)
+	router.Post("/payment/intent/cancel", paymentIntentHandler.Cancel)
 
 	s := &http.Server{
 		Addr:           ":" + config.Env.App.Port,

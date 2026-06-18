@@ -45,7 +45,6 @@ func (r *FicMartBankRepo) Authorize(ctx context.Context, idempotencyKey string, 
 		return Payment{}, err
 	}
 
-	log.Println("capture object in drom bank: ", resData)
 	return resData.ToPayment(), nil
 }
 
@@ -65,7 +64,6 @@ func (r *FicMartBankRepo) Capture(ctx context.Context, idempotencyKey, authoriza
 		return Payment{}, err
 	}
 
-	log.Println("capture object in drom bank: ", resData)
 	return resData.ToPayment(), nil
 }
 

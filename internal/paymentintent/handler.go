@@ -23,7 +23,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		_ = r.Body.Close()
 	}()
 
-	var req CreatePaymentIntentRequest
+	var req CreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("Error decoding request body: %s", err)
 		render.ErrorJSON(w, "invalid request body", http.StatusBadRequest)
@@ -92,7 +92,7 @@ func (h *Handler) Capture(w http.ResponseWriter, r *http.Request) {
 		_ = r.Body.Close()
 	}()
 
-	var req CapturePaymentIntentRequest
+	var req CaptureRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("Error decoding request body: %s", err)
 		render.ErrorJSON(w, "invalid request body", http.StatusBadRequest)
@@ -116,26 +116,7 @@ func (h *Handler) Capture(w http.ResponseWriter, r *http.Request) {
 		requestHash, req.PaymentRef, req.Amount,
 	)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrIdempotencyKeyReuse):
-			render.ErrorJSON(w, err.Error(), http.StatusConflict)
-
-		case errors.Is(err, ErrBankDeclined):
-			render.ErrorJSON(w, err.Error(), http.StatusUnprocessableEntity)
-
-		case errors.Is(err, ErrInconsistentState):
-			render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
-
-		case errors.Is(err, ErrInternal):
-			render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
-
-		case errors.Is(err, ErrOperationNotAllowed):
-			render.ErrorJSON(w, err.Error(), http.StatusForbidden)
-
-		default:
-			render.ErrorJSON(w, "Unexpected error", http.StatusInternalServerError)
-		}
-
+		renderErr(err, w)
 		return
 	}
 
@@ -143,7 +124,88 @@ func (h *Handler) Capture(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Idempotent-Replayed", "true")
 	}
 
-	render.JSON(w, http.StatusCreated, "Payment Intent captured successfully", paymentIntent)
+	render.JSON(w, http.StatusCreated, "Payment captured successfully", paymentIntent)
+}
+
+func (h *Handler) Refund(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		_ = r.Body.Close()
+	}()
+
+	var req RefundRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding request body: %s", err)
+		render.ErrorJSON(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		render.ErrorJSON(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	requestHash, err := hashRequestBody(req)
+	if err != nil {
+		log.Printf("Error hashing request body: %s", err)
+		render.ErrorJSON(w, "Unable to hash request body", http.StatusInternalServerError)
+		return
+	}
+
+	paymentIntent, replayed, err := h.service.Refund(
+		r.Context(), r.Header.Get("X-Idempotency-Key"),
+		requestHash, req.PaymentRef, req.Amount,
+	)
+	if err != nil {
+		renderErr(err, w)
+		return
+	}
+
+	if replayed {
+		w.Header().Set("X-Idempotent-Replayed", "true")
+	}
+
+	render.JSON(w, http.StatusCreated, "Payment refunded successfully", paymentIntent)
+}
+
+func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		_ = r.Body.Close()
+	}()
+
+	var req CencelRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding request body: %s", err)
+		render.ErrorJSON(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		render.ErrorJSON(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	requestHash, err := hashRequestBody(req)
+	if err != nil {
+		log.Printf("Error hashing request body: %s", err)
+		render.ErrorJSON(w, "Unable to hash request body", http.StatusInternalServerError)
+		return
+	}
+
+	paymentIntent, replayed, err := h.service.Cancel(
+		r.Context(),
+		r.Header.Get("X-Idempotency-Key"), requestHash,
+		req.PaymentRef,
+	)
+	if err != nil {
+		renderErr(err, w)
+		return
+	}
+
+	if replayed {
+		w.Header().Set("X-Idempotent-Replayed", "true")
+	}
+
+	render.JSON(w, http.StatusCreated, "Payment successfully canceled", paymentIntent)
 }
 
 func hashRequestBody(body any) (string, error) {
@@ -155,4 +217,26 @@ func hashRequestBody(body any) (string, error) {
 	hash := hex.EncodeToString(sum[:])
 
 	return hash, nil
+}
+
+func renderErr(err error, w http.ResponseWriter) {
+	switch {
+	case errors.Is(err, ErrIdempotencyKeyReuse):
+		render.ErrorJSON(w, err.Error(), http.StatusConflict)
+
+	case errors.Is(err, ErrBankDeclined):
+		render.ErrorJSON(w, err.Error(), http.StatusUnprocessableEntity)
+
+	case errors.Is(err, ErrInconsistentState):
+		render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
+
+	case errors.Is(err, ErrInternal):
+		render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
+
+	case errors.Is(err, ErrOperationNotAllowed):
+		render.ErrorJSON(w, err.Error(), http.StatusForbidden)
+
+	default:
+		render.ErrorJSON(w, "Unexpected error", http.StatusInternalServerError)
+	}
 }

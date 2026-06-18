@@ -10,7 +10,7 @@ const (
 	PaymentStatusAuthorized string = "authorized"
 	PaymentStatusCaptured   string = "captured"
 	PaymentStatusRefunded   string = "refunded"
-	PaymentStatusVoided     string = "voided"
+	PaymentStatusCanceled   string = "canceled"
 	PaymentStatusFailed     string = "failed"
 )
 
