@@ -40,14 +40,12 @@ func (s *Service) Capture(ctx context.Context,
 	err = s.uow.RunInTx(ctx, func(r Repos) error {
 		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCaptured, payment.CaptureId)
 		if err != nil {
-			log.Printf("Error creating payment event: %s", err)
-			return ErrInternal
+			return err
 		}
 
 		err = r.PaymentIntent.UpdateState(ctx, paymentRef, event.State)
 		if err != nil {
-			log.Printf("Error updating bank capture for payment reference %s: %s", paymentRef, err)
-			return ErrInternal
+			return err
 		}
 
 		pi.Status = event.State
@@ -55,6 +53,10 @@ func (s *Service) Capture(ctx context.Context,
 
 		return nil
 	})
+	if err != nil {
+		log.Printf("Error creating payment event for state to %v: %s", PaymentStatusCaptured, err)
+		return PaymentIntent{}, false, ErrInternal
+	}
 
 	err = s.idempotencyService.ReserveKey(ctx, idempotencyKey, requestHash, paymentRef)
 	if err != nil {

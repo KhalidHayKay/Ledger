@@ -83,13 +83,11 @@ func (s *Service) Create(
 	err = s.uow.RunInTx(ctx, func(r Repos) error {
 		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusAuthorized, payment.AuthorizationId)
 		if err != nil {
-			log.Printf("Error creating payment event state: %s", err)
 			return err
 		}
 
 		err = r.PaymentIntent.UpdateState(ctx, pi.PaymentRef, event.State)
 		if err != nil {
-			log.Printf("Error updating payment intent state: %s", err)
 			return err
 		}
 
@@ -98,6 +96,10 @@ func (s *Service) Create(
 
 		return nil
 	})
+	if err != nil {
+		log.Printf("Error creating payment event for state to %v: %s", PaymentStatusAuthorized, err)
+		return PaymentIntent{}, false, ErrInternal
+	}
 
 	return pi, false, nil
 }
