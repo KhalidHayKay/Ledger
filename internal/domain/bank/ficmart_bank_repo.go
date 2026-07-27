@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"ledger/app/config"
+	"ledger/internal/platform/config"
 	"log"
 	"net/http"
 )

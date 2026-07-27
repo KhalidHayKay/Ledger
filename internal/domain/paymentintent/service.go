@@ -3,42 +3,47 @@ package paymentintent
 import (
 	"context"
 	"errors"
-	"ledger/internal/bank"
-	"ledger/internal/idempotency"
-	"ledger/internal/paymentevent"
+	"ledger/internal/domain/bank"
+	"ledger/internal/domain/idempotency"
+	"ledger/internal/domain/paymentevent"
+	"ledger/internal/jobs/queue"
 	"log"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 )
 
-type Repos struct {
-	PaymentIntent Repository
-	PaymentEvent  paymentevent.Repository
-}
-
-type UoW interface {
-	RunInTx(ctx context.Context, fn func(Repos) error) error
-}
-
 type Service struct {
 	repo      Repository
 	eventRepo paymentevent.Repository
 	bankRepo  bank.Repository
 
-	uow UoW
+	uow UnitOfWork
 
 	idempotencyService *idempotency.Service
+
+	queue    *queue.Client
+	notifier *RedisNotifier
 }
 
 func NewService(
 	repo Repository,
 	paymentEventRepo paymentevent.Repository,
 	bankRepo bank.Repository,
-	uow UoW,
+	uow UnitOfWork,
 	idempotencyService *idempotency.Service,
+	queueClient *queue.Client,
+	notifier *RedisNotifier,
 ) *Service {
-	return &Service{repo, paymentEventRepo, bankRepo, uow, idempotencyService}
+	return &Service{
+		repo,
+		paymentEventRepo,
+		bankRepo,
+		uow,
+		idempotencyService,
+		queueClient,
+		notifier,
+	}
 }
 
 func (s *Service) getReservedIntent(ctx context.Context, idempotencyKey, requestHash string) (*PaymentIntent, error) {

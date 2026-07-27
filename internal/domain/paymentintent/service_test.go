@@ -3,9 +3,10 @@ package paymentintent
 import (
 	"context"
 	"encoding/json"
-	"ledger/internal/bank"
-	"ledger/internal/idempotency"
-	"ledger/internal/paymentevent"
+	"ledger/internal/domain/bank"
+	"ledger/internal/domain/idempotency"
+	"ledger/internal/domain/paymentevent"
+	"ledger/internal/jobs/queue"
 	"testing"
 )
 
@@ -127,10 +128,10 @@ func (r *idempotencyRepoMock) GetByKey(ctx context.Context, idempotencyKey strin
 
 // UoW Mock
 type uowMock struct {
-	RunInTxFn func(ctx context.Context, fn func(Repos) error) error
+	RunInTxFn func(ctx context.Context, fn func(TxRepos) error) error
 }
 
-func (u *uowMock) RunInTx(ctx context.Context, fn func(Repos) error) error {
+func (u *uowMock) RunInTx(ctx context.Context, fn func(TxRepos) error) error {
 	return u.RunInTxFn(ctx, fn)
 }
 
@@ -158,16 +159,23 @@ func TestGetReservedHappyPath(t *testing.T) {
 	}
 
 	uow := &uowMock{
-		RunInTxFn: func(ctx context.Context, fn func(Repos) error) error {
-			return fn(Repos{
+		RunInTxFn: func(ctx context.Context, fn func(TxRepos) error) error {
+			return fn(TxRepos{
 				PaymentIntent: repo,
 			})
 		},
 	}
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
-
-	service := NewService(repo, &paymentEventRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
+	service := NewService(
+		repo,
+		&paymentEventRepoMock{},
+		&bankRepoMock{},
+		uow,
+		idempotencyService,
+		&queue.Client{},
+		&RedisNotifier{},
+	)
 
 	paymentIntent, err := service.getReservedIntent(context.Background(), "idm-key", requestHash)
 	if err != nil {
@@ -206,8 +214,8 @@ func TestGetReservedThrowsErrorOnIdempotencyKeyReuse(t *testing.T) {
 	}
 
 	uow := &uowMock{
-		RunInTxFn: func(ctx context.Context, fn func(Repos) error) error {
-			return fn(Repos{
+		RunInTxFn: func(ctx context.Context, fn func(TxRepos) error) error {
+			return fn(TxRepos{
 				PaymentIntent: repo,
 			})
 		},
@@ -215,7 +223,15 @@ func TestGetReservedThrowsErrorOnIdempotencyKeyReuse(t *testing.T) {
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &paymentEventRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
+	service := NewService(
+		repo,
+		&paymentEventRepoMock{},
+		&bankRepoMock{},
+		uow,
+		idempotencyService,
+		&queue.Client{},
+		&RedisNotifier{},
+	)
 
 	_, err := service.getReservedIntent(context.Background(), "idm-key", requestHash)
 	if err == nil {

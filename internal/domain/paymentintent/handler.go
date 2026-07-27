@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"ledger/app/render"
+	"ledger/internal/platform/render"
 	"log"
 	"net/http"
 )

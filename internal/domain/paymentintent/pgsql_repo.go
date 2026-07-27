@@ -3,7 +3,7 @@ package paymentintent
 import (
 	"context"
 	"errors"
-	"ledger/internal/paymentevent"
+	"ledger/internal/domain/paymentevent"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"

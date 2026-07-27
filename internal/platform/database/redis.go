@@ -1,8 +1,8 @@
-package storage
+package database
 
 import (
 	"context"
-	"ledger/app/config"
+	"ledger/internal/platform/config"
 	"time"
 
 	"github.com/redis/go-redis/v9"

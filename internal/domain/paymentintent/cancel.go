@@ -37,7 +37,7 @@ func (s *Service) Cancel(ctx context.Context,
 		return PaymentIntent{}, false, ErrBankDeclined
 	}
 
-	err = s.uow.RunInTx(ctx, func(r Repos) error {
+	err = s.uow.RunInTx(ctx, func(r TxRepos) error {
 		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCanceled, payment.VoidId)
 		if err != nil {
 			return err

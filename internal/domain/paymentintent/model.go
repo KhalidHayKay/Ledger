@@ -1,7 +1,7 @@
 package paymentintent
 
 import (
-	"ledger/internal/paymentevent"
+	"ledger/internal/domain/paymentevent"
 	"time"
 )
 
