@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"ledger/app/config"
-	"ledger/app/storage"
+	"ledger/internal/platform/config"
+	"ledger/internal/platform/database"
 	"log"
 	"time"
 
@@ -69,7 +69,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	pgsql, err := storage.InitPostgres()
+	pgsql, err := database.InitPostgres()
 	if err != nil {
 		log.Fatal(err)
 	}

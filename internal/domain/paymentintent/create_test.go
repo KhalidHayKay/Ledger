@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"ledger/app/config"
-	"ledger/internal/bank"
-	"ledger/internal/idempotency"
-	"ledger/internal/paymentevent"
+	"ledger/internal/domain/bank"
+	"ledger/internal/domain/idempotency"
+	"ledger/internal/domain/paymentevent"
+	"ledger/internal/jobs/queue"
+	"ledger/internal/platform/config"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
@@ -40,7 +41,7 @@ func TestCreateReplaysExistingPaymentIntent(t *testing.T) {
 	}
 
 	uow := &uowMock{
-		RunInTxFn: func(ctx context.Context, fn func(Repos) error) error {
+		RunInTxFn: func(ctx context.Context, fn func(TxRepos) error) error {
 			t.Fatal("RunInTx should not be called for reserved payment intent")
 			return nil
 		},
@@ -48,7 +49,15 @@ func TestCreateReplaysExistingPaymentIntent(t *testing.T) {
 
 	idempotencyService := idempotency.NewService(idempotencyRepo)
 
-	service := NewService(repo, &paymentEventRepoMock{}, &bankRepoMock{}, uow, idempotencyService)
+	service := NewService(
+		repo,
+		&paymentEventRepoMock{},
+		&bankRepoMock{},
+		uow,
+		idempotencyService,
+		&queue.Client{},
+		&RedisNotifier{},
+	)
 
 	_, relayed, err := service.Create(
 		context.Background(),
@@ -120,15 +129,23 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 			idempotencyService := idempotency.NewService(idempotencyRepo)
 
 			uow := &uowMock{
-				RunInTxFn: func(ctx context.Context, fn func(Repos) error) error {
-					return fn(Repos{
+				RunInTxFn: func(ctx context.Context, fn func(TxRepos) error) error {
+					return fn(TxRepos{
 						PaymentIntent: repo,
 						PaymentEvent:  ppRepo,
 					})
 				},
 			}
 
-			service := NewService(repo, &paymentEventRepoMock{}, bankRepo, uow, idempotencyService)
+			service := NewService(
+				repo,
+				&paymentEventRepoMock{},
+				bankRepo,
+				uow,
+				idempotencyService,
+				&queue.Client{},
+				&RedisNotifier{},
+			)
 
 			paymentIntent, relayed, err := service.Create(
 				context.Background(),

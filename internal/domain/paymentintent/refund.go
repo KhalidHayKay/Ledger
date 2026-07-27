@@ -38,7 +38,7 @@ func (s *Service) Refund(ctx context.Context,
 		return PaymentIntent{}, false, ErrBankDeclined
 	}
 
-	err = s.uow.RunInTx(ctx, func(r Repos) error {
+	err = s.uow.RunInTx(ctx, func(r TxRepos) error {
 		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusRefunded, payment.RefundId)
 		if err != nil {
 			return err

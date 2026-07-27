@@ -1,15 +1,14 @@
 package main
 
 import (
-	"context"
-	"ledger/app/config"
-	"ledger/app/middleware"
-	"ledger/app/storage"
-	"ledger/internal/bank"
-	"ledger/internal/idempotency"
-	"ledger/internal/paymentevent"
-	"ledger/internal/paymentintent"
-	"ledger/pkg/uow"
+	"ledger/internal/domain/bank"
+	"ledger/internal/domain/idempotency"
+	"ledger/internal/domain/paymentevent"
+	"ledger/internal/domain/paymentintent"
+	"ledger/internal/jobs/queue"
+	"ledger/internal/platform/config"
+	"ledger/internal/platform/database"
+	"ledger/internal/platform/middleware"
 	"log"
 	"net/http"
 	"time"
@@ -23,12 +22,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	pgsql, err := storage.InitPostgres()
+	pgsql, err := database.InitPostgres()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	redis, err := storage.InitRedis()
+	redis, err := database.InitRedis()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,16 +43,24 @@ func main() {
 
 	paymentEventRepo := paymentevent.NewPostgresRepo(pgsql)
 
-	uow := uow.NewPgsqlUoW(pgsql)
+	uow := paymentintent.NewPgsqlUoW(pgsql)
+
+	queueClient, err := queue.NewClient(config.Env.Redis.Addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	notifier := paymentintent.NewRedisNotifier(redis)
 
 	paymentIntentRepo := paymentintent.NewPostgresRepo(pgsql)
 	paymentIntentService := paymentintent.NewService(
 		paymentIntentRepo,
 		paymentEventRepo,
 		ficmartBankRepo,
-
-		&paymentIntentTxAdapter{u: uow},
+		uow,
 		idempotencyService,
+		queueClient,
+		notifier,
 	)
 	paymentIntentHandler := paymentintent.NewHandler(paymentIntentService)
 
@@ -78,17 +85,4 @@ func main() {
 	}
 
 	log.Fatal(s.ListenAndServe())
-}
-
-type paymentIntentTxAdapter struct {
-	u *uow.PgsqlUoW
-}
-
-func (a *paymentIntentTxAdapter) RunInTx(ctx context.Context, fn func(paymentintent.Repos) error) error {
-	return a.u.RunInTx(ctx, func(r uow.Repos) error {
-		return fn(paymentintent.Repos{
-			PaymentIntent: r.PaymentIntent,
-			PaymentEvent:  r.PaymentEvent,
-		})
-	})
 }

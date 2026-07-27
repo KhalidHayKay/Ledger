@@ -21,6 +21,7 @@ type AppConfig struct {
 type RedisConfig struct {
 	Host     string
 	Port     string
+	Addr     string
 	Password string
 }
 
@@ -92,6 +93,7 @@ func LoadEnv() error {
 		Redis: RedisConfig{
 			Host:     os.Getenv("REDIS_HOST"),
 			Port:     os.Getenv("REDIS_PORT"),
+			Addr:     fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
 			Password: os.Getenv("REDIS_PASSWORD"),
 		},
 

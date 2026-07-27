@@ -1,10 +1,10 @@
-package utils
+package uuid
 
 import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"ledger/app/config"
+	"ledger/internal/platform/config"
 	"strconv"
 )
 

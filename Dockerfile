@@ -20,4 +20,4 @@ RUN if [ "$APP_ENV" != "local" ]; then \
     go build -o cmd/app/main ./cmd/app; \
     fi
 
-ENTRYPOINT ["/bin/sh", "start.sh"]
+ENTRYPOINT ["/bin/sh", "scripts/start.sh"]

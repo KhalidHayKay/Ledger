@@ -1,8 +1,8 @@
-package storage
+package database
 
 import (
 	"context"
-	"ledger/app/config"
+	"ledger/internal/platform/config"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
