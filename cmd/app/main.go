@@ -9,12 +9,14 @@ import (
 	"ledger/internal/platform/config"
 	"ledger/internal/platform/database"
 	"ledger/internal/platform/middleware"
+	"ledger/internal/platform/notifier"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/hibiken/asynq"
 )
 
 func main() {
@@ -36,6 +38,8 @@ func main() {
 		Timeout: 10 * time.Second,
 	}
 
+	appMiddleware := middleware.NewMiddleware()
+
 	ficmartBankRepo := bank.NewFicMartBankRepo(client)
 
 	idempotencyRepo := idempotency.NewRedisRepo(redis)
@@ -45,12 +49,15 @@ func main() {
 
 	uow := paymentintent.NewPgsqlUoW(pgsql)
 
-	queueClient, err := queue.NewClient(config.Env.Redis.Addr)
-	if err != nil {
-		log.Fatal(err)
-	}
+	notifier := notifier.NewRedisNotifier(redis)
 
-	notifier := paymentintent.NewRedisNotifier(redis)
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
+		Addr:     config.Env.Redis.Addr,
+		Password: config.Env.Redis.Password,
+		DB:       1,
+	})
+
+	queueClient := queue.NewClient(asynqClient)
 
 	paymentIntentRepo := paymentintent.NewPostgresRepo(pgsql)
 	paymentIntentService := paymentintent.NewService(
@@ -68,19 +75,28 @@ func main() {
 
 	router.Use(chiMiddleware.Logger, chiMiddleware.Recoverer)
 
-	appMiddleware := middleware.NewMiddleware()
-	router.Use(appMiddleware.EnsureIndempotencyKey)
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
 
-	router.Post("/payment/intent", paymentIntentHandler.Create)
-	router.Post("/payment/intent/capture", paymentIntentHandler.Capture)
-	router.Post("/payment/intent/refund", paymentIntentHandler.Refund)
-	router.Post("/payment/intent/cancel", paymentIntentHandler.Cancel)
+	})
+
+	router.Get("/payment/intent", paymentIntentHandler.Get)
+
+	router.Group(func(r chi.Router) {
+		r.Use(appMiddleware.EnsureIndempotencyKey)
+
+		r.Post("/payment/intent", paymentIntentHandler.Create)
+		r.Post("/payment/intent/capture", paymentIntentHandler.Capture)
+		r.Post("/payment/intent/refund", paymentIntentHandler.Refund)
+		r.Post("/payment/intent/cancel", paymentIntentHandler.Cancel)
+	})
 
 	s := &http.Server{
 		Addr:           ":" + config.Env.App.Port,
 		Handler:        router,
 		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		WriteTimeout:   40 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 

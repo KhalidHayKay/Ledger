@@ -39,7 +39,6 @@ func (s *Service) Create(
 	sub := s.notifier.Subscribe(pi.PaymentRef)
 	defer sub.Close()
 
-	// Error not handled yet
 	err = s.queue.EnqueueCreate(ctx, tasks.CreatePayload{
 		IdempotencyKey: idempotencyKey,
 		IntentId:       pi.Id,
@@ -60,31 +59,34 @@ func (s *Service) Create(
 		},
 	})
 	if err != nil {
+		log.Printf("Error enqueuing create payment task: %s", err)
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	result, err := sub.Wait(resultCtx)
-	if err != nil {
+	state, err := sub.Wait(resultCtx)
+	log.Printf("End of wait. State: %v, Error: %v", state, err)
+	if err != nil || state == "" {
 		return pi, false, nil
 	}
 
-	return result, false, nil
+	// log.Printf("Received payment status for %v: %v", pi.PaymentRef, state)
+	pi.Status = state
+	return pi, false, nil
 }
 
 func (s *Service) createPendingIntent(ctx context.Context, input CreateInput) (PaymentIntent, error) {
 	var pi PaymentIntent
 	err := s.uow.RunInTx(ctx, func(r TxRepos) error {
-		pi, err := r.PaymentIntent.Create(
+		var err error
+		pi, err = r.PaymentIntent.Create(
 			ctx, input.Amount.Figure, input.Amount.Currency, input.OrderId, input.CustomerId,
 		)
 		if err != nil {
-			log.Printf("Error creating payment intent: %s", err)
 			return err
 		}
 
 		id, err := strconv.ParseInt(pi.Id, 10, 64)
 		if err != nil {
-			log.Printf("Error parsing payment intent ID: %s", err)
 			return err
 		}
 
@@ -94,12 +96,15 @@ func (s *Service) createPendingIntent(ctx context.Context, input CreateInput) (P
 			ctx, pi.Id, pi.PaymentRef,
 		)
 		if err != nil {
-			log.Printf("Error creating payment intent: %s", err)
 			return err
 		}
 
 		return nil
 	})
+	if err != nil {
+		log.Printf("Error creating payment intent: %s", err)
+		return PaymentIntent{}, err
+	}
 
 	return pi, err
 }

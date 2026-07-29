@@ -10,9 +10,8 @@ type Client struct {
 	client *asynq.Client
 }
 
-func NewClient(redisAddr string) (*Client, error) {
-	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
-	return &Client{client: client}, nil
+func NewClient(client *asynq.Client) *Client {
+	return &Client{client}
 }
 
 func (c *Client) Close() {

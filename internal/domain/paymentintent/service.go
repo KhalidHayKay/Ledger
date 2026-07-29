@@ -7,6 +7,7 @@ import (
 	"ledger/internal/domain/idempotency"
 	"ledger/internal/domain/paymentevent"
 	"ledger/internal/jobs/queue"
+	"ledger/internal/platform/notifier"
 	"log"
 
 	"github.com/jackc/pgx/v5"
@@ -23,7 +24,7 @@ type Service struct {
 	idempotencyService *idempotency.Service
 
 	queue    *queue.Client
-	notifier *RedisNotifier
+	notifier notifier.Notifier
 }
 
 func NewService(
@@ -33,7 +34,7 @@ func NewService(
 	uow UnitOfWork,
 	idempotencyService *idempotency.Service,
 	queueClient *queue.Client,
-	notifier *RedisNotifier,
+	notifier notifier.Notifier,
 ) *Service {
 	return &Service{
 		repo,
@@ -44,6 +45,19 @@ func NewService(
 		queueClient,
 		notifier,
 	}
+}
+
+func (s *Service) GetByRef(ctx context.Context, ref string) (*PaymentIntent, error) {
+	pi, err := s.repo.GetByRef(ctx, ref)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		log.Println("failed to get payment intent for payment ref: ", ref, " error: ", err)
+		return nil, ErrInternal
+	}
+
+	return &pi, nil
 }
 
 func (s *Service) getReservedIntent(ctx context.Context, idempotencyKey, requestHash string) (*PaymentIntent, error) {

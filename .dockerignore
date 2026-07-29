@@ -8,3 +8,4 @@
 /docker/storage
 /storage/*.sqlite
 /storage/*.db
+tmp

@@ -5,7 +5,9 @@ import (
 	"ledger/internal/domain/paymentintent"
 	"ledger/internal/jobs/tasks"
 	"ledger/internal/jobs/worker"
+	"ledger/internal/platform/config"
 	"ledger/internal/platform/database"
+	"ledger/internal/platform/notifier"
 	"log"
 	"net/http"
 	"time"
@@ -13,16 +15,28 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-const redisAddr = "127.0.0.1:6379"
-
 func main() {
+	if err := config.LoadEnv(); err != nil {
+		log.Fatal(err)
+	}
+
 	pgsql, err := database.InitPostgres()
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	redis, err := database.InitRedis()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: redisAddr},
+		asynq.RedisClientOpt{
+			Addr:     config.Env.Redis.Addr,
+			Password: config.Env.Redis.Password,
+			DB:       1,
+		},
+
 		asynq.Config{
 			// Specify how many concurrent workers to use
 			Concurrency: 10,
@@ -42,8 +56,9 @@ func main() {
 
 	bankRepo := bank.NewFicMartBankRepo(client)
 	uow := paymentintent.NewPgsqlUoW(pgsql)
+	notifier := notifier.NewRedisNotifier(redis)
 
-	taskHandler := worker.NewPaymentWorker(bankRepo, uow)
+	taskHandler := worker.NewPaymentWorker(bankRepo, uow, notifier)
 
 	// mux maps a type to a handler
 	mux := asynq.NewServeMux()

@@ -33,7 +33,7 @@ func NewCreatePaymentTask(p CreatePayload) (*asynq.Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	return asynq.NewTask(TypeCapturePayment, payload), nil
+	return asynq.NewTask(TypeCreatePayment, payload), nil
 }
 
 // I think handler shoild not be here

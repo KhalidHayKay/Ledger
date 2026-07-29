@@ -7,6 +7,7 @@ import (
 	"ledger/internal/domain/idempotency"
 	"ledger/internal/domain/paymentevent"
 	"ledger/internal/jobs/queue"
+	"ledger/internal/platform/notifier"
 	"testing"
 )
 
@@ -174,7 +175,7 @@ func TestGetReservedHappyPath(t *testing.T) {
 		uow,
 		idempotencyService,
 		&queue.Client{},
-		&RedisNotifier{},
+		&notifier.RedisNotifier{},
 	)
 
 	paymentIntent, err := service.getReservedIntent(context.Background(), "idm-key", requestHash)
@@ -230,7 +231,7 @@ func TestGetReservedThrowsErrorOnIdempotencyKeyReuse(t *testing.T) {
 		uow,
 		idempotencyService,
 		&queue.Client{},
-		&RedisNotifier{},
+		&notifier.RedisNotifier{},
 	)
 
 	_, err := service.getReservedIntent(context.Background(), "idm-key", requestHash)
