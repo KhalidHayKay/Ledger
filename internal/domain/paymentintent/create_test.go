@@ -9,6 +9,7 @@ import (
 	"ledger/internal/domain/paymentevent"
 	"ledger/internal/jobs/queue"
 	"ledger/internal/platform/config"
+	"ledger/internal/platform/notifier"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
@@ -56,7 +57,7 @@ func TestCreateReplaysExistingPaymentIntent(t *testing.T) {
 		uow,
 		idempotencyService,
 		&queue.Client{},
-		&RedisNotifier{},
+		&notifier.RedisNotifier{},
 	)
 
 	_, relayed, err := service.Create(
@@ -144,7 +145,7 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 				uow,
 				idempotencyService,
 				&queue.Client{},
-				&RedisNotifier{},
+				&notifier.RedisNotifier{},
 			)
 
 			paymentIntent, relayed, err := service.Create(

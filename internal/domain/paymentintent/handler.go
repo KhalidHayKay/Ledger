@@ -208,6 +208,22 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, http.StatusCreated, "Payment successfully canceled", paymentIntent)
 }
 
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+	paymentRef := r.URL.Query().Get("payment_ref")
+	if paymentRef == "" {
+		render.ErrorJSON(w, "payment_ref is required", http.StatusBadRequest)
+		return
+	}
+
+	paymentIntent, err := h.service.GetByRef(r.Context(), paymentRef)
+	if err != nil {
+		renderErr(err, w)
+		return
+	}
+
+	render.JSON(w, http.StatusOK, "Payment intent retrieved successfully", paymentIntent)
+}
+
 func hashRequestBody(body any) (string, error) {
 	canonical, err := json.Marshal(body)
 	if err != nil {
@@ -235,6 +251,9 @@ func renderErr(err error, w http.ResponseWriter) {
 
 	case errors.Is(err, ErrOperationNotAllowed):
 		render.ErrorJSON(w, err.Error(), http.StatusForbidden)
+
+	case errors.Is(err, ErrNotFound):
+		render.ErrorJSON(w, err.Error(), http.StatusNotFound)
 
 	default:
 		render.ErrorJSON(w, "Unexpected error", http.StatusInternalServerError)

@@ -13,6 +13,15 @@ services:
     working_dir: /var/www
     ports:
       - "${APP_PORT}:${APP_PORT}"
+  worker:
+    image: ledger-app
+    container_name: ledger-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh", "-c", "exec sh scripts/start.worker.sh"]
+    depends_on:
+      - redis
     extra_hosts:
       - "host.docker.internal:host-gateway"
   db:
