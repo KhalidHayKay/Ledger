@@ -7,9 +7,9 @@ import (
 
 // Sentinels used for asynq retry classification.
 var (
-	ErrInternal      = errors.New("internal error")       // our own bug — retrying won't help
-	ErrBankTransient = errors.New("bank transient error") // network blip, 5xx — safe to retry
-	ErrBankTerminal  = errors.New("bank terminal error")  // decline, bad card, etc — retrying is pointless
+	ErrInternal      = errors.New("internal error")
+	ErrBankTransient = errors.New("bank transient error")
+	ErrBankTerminal  = errors.New("bank terminal error")
 )
 
 // APIError carries FicMart's structured 4xx error body.

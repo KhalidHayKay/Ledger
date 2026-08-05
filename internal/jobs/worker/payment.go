@@ -37,6 +37,13 @@ func (w *PaymentWorker) HandleCreate(ctx context.Context, t *asynq.Task) error {
 	payment, err := w.bankRepo.Authorize(ctx, p.IdempotencyKey, *p.BankInput)
 	if err != nil {
 		if !bank.IsTerminal(err) {
+			retried, _ := asynq.GetRetryCount(ctx)
+			maxRetry, _ := asynq.GetMaxRetry(ctx)
+
+			if retried >= maxRetry {
+				return w.terminateRetry(ctx, p)
+			}
+
 			log.Printf("Transient bank error for %v, will retry: %s", p.PaymentRef, err)
 			return err
 		}
@@ -93,5 +100,33 @@ func (w *PaymentWorker) HandleCreate(ctx context.Context, t *asynq.Task) error {
 		log.Printf("Error publishing authorized status for %v: %s", p.PaymentRef, pubErr)
 	}
 
+	log.Printf("Payment authorized for %v: %s", p.PaymentRef, payment.AuthorizationId)
 	return nil
+}
+
+func (w *PaymentWorker) terminateRetry(ctx context.Context, p tasks.CreatePayload) error {
+	var err error
+	txErr := w.uow.RunInTx(ctx, func(r paymentintent.TxRepos) error {
+		ev, err := r.PaymentEvent.Create(
+			ctx, p.IntentId,
+			paymentintent.PaymentStatusFailed,
+			"", // no authorization ID
+			"bank unreachable after max retries",
+		)
+		if err != nil {
+			return err
+		}
+		return r.PaymentIntent.UpdateState(ctx, p.PaymentRef, ev.State)
+	})
+	if txErr != nil {
+		log.Printf("Error recording exhausted-retry failure for %v: %s", p.PaymentRef, txErr)
+		return txErr
+	}
+
+	if pubErr := w.notifier.Publish(ctx, p.PaymentRef, paymentintent.PaymentStatusFailed); pubErr != nil {
+		log.Printf("Error publishing exhausted-retry status for %v: %s", p.PaymentRef, pubErr)
+	}
+
+	log.Printf("Retries exhausted for %v: %s", p.PaymentRef, err)
+	return fmt.Errorf("%v: %w", err, asynq.SkipRetry)
 }

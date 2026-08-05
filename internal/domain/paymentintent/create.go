@@ -64,7 +64,6 @@ func (s *Service) Create(
 	}
 
 	result, err := sub.Wait(resultCtx)
-	log.Printf("End of wait. State: %v, Error: %v", result, err)
 	if err != nil || result == "" {
 		return pi, false, nil
 	}
