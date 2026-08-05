@@ -108,6 +108,19 @@ func (r *PostgresRepo) UpdateState(ctx context.Context, paymentRef, state string
 	return nil
 }
 
+func (r *PostgresRepo) UpdateOperation(ctx context.Context, paymentRef, operation string) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE payment_intents
+		SET current_operation = $1
+		WHERE payment_reference = $2
+	`, operation, paymentRef)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *PostgresRepo) GetByRef(ctx context.Context, paymentRef string) (PaymentIntent, error) {
 	var intent PaymentIntent
 

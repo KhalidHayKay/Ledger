@@ -93,14 +93,19 @@ func (s *Service) createPendingIntent(ctx context.Context, input CreateInput) (P
 			return err
 		}
 
-		pi.PaymentRef = uuid.GeneratePaymentRef(id)
+		ref := uuid.GeneratePaymentRef(id)
 
 		err = r.PaymentIntent.CreateReference(
-			ctx, pi.Id, pi.PaymentRef,
+			ctx, pi.Id, ref,
 		)
 		if err != nil {
 			return err
 		}
+
+		err = r.PaymentIntent.UpdateOperation(ctx, ref, PaymentAuthorizationOp)
+
+		pi.PaymentRef = ref
+		pi.CurrentOp = PaymentAuthorizationOp
 
 		return nil
 	})

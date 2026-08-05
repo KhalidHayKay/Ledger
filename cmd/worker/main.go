@@ -63,6 +63,9 @@ func main() {
 	// mux maps a type to a handler
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeCreatePayment, taskHandler.HandleCreate)
+	mux.HandleFunc(tasks.TypeCapturePayment, taskHandler.HandleCapture)
+	// mux.HandleFunc(tasks.TypeRefundPayment, taskHandler.HandleRefund)
+	// mux.HandleFunc(tasks.TypeCancelPayment, taskHandler.HandleCancel)
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatalf("could not run server: %v", err)

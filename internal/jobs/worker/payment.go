@@ -34,9 +34,13 @@ func (w *PaymentWorker) HandleCreate(ctx context.Context, t *asynq.Task) error {
 	}
 
 	payment, err := w.bankRepo.Authorize(ctx, p.IdempotencyKey, *p.BankInput)
-	bankErr := w.handleBankError(ctx, payment, p.PaymentRef, p.IntentId, err)
-	if bankErr != nil {
-		return bankErr
+
+	if err := w.handleTransientError(ctx, p.PaymentRef, p.IntentId, err); err != nil {
+		return err
+	}
+
+	if err := w.handleTerminalError(ctx, payment, p.PaymentRef, p.IntentId, err); err != nil {
+		return err
 	}
 
 	err = w.uow.RunInTx(ctx, func(r paymentintent.TxRepos) error {
@@ -71,9 +75,13 @@ func (w *PaymentWorker) HandleCapture(ctx context.Context, t *asynq.Task) error 
 	}
 
 	payment, err := w.bankRepo.Capture(ctx, p.IdempotencyKey, p.StateId, p.Amount)
-	bankErr := w.handleBankError(ctx, payment, p.PaymentRef, p.IntentId, err)
-	if bankErr != nil {
-		return bankErr
+
+	if err := w.handleTransientError(ctx, p.PaymentRef, p.IntentId, err); err != nil {
+		return err
+	}
+
+	if err := w.handleTerminalError(ctx, payment, p.PaymentRef, p.IntentId, err); err != nil {
+		return err
 	}
 
 	err = w.uow.RunInTx(ctx, func(r paymentintent.TxRepos) error {

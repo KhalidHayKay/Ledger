@@ -32,6 +32,7 @@ type repoMock struct {
 	UpdateStateFn     func(ctx context.Context, paymentRef, state string) error
 	GetByRefFn        func(ctx context.Context, paymentRef string) (PaymentIntent, error)
 	GetWithEventFn    func(ctx context.Context, paymentRef, state string) (PaymentIntent, error)
+	UpdateOperationFn func(ctx context.Context, paymentRef, operation string) error
 
 	calls []string
 }
@@ -88,6 +89,13 @@ func (r *repoMock) GetByRef(ctx context.Context, paymentRef string) (PaymentInte
 func (r *repoMock) GetWithEvent(ctx context.Context, paymentRef, state string) (PaymentIntent, error) {
 	r.calls = append(r.calls, getByPaymentRefCall)
 	return r.GetWithEventFn(ctx, paymentRef, state)
+}
+
+func (r *repoMock) UpdateOperation(ctx context.Context, paymentRef, operation string) error {
+	if r.UpdateOperationFn != nil {
+		return r.UpdateOperationFn(ctx, paymentRef, operation)
+	}
+	return nil
 }
 
 // Payment event mocks

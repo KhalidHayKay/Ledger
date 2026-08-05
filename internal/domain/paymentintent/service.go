@@ -89,3 +89,7 @@ func (s *Service) getReservedIntent(ctx context.Context, idempotencyKey, request
 
 	return &pi, nil
 }
+
+func (s *Service) startOperation(ctx context.Context, paymentRef, operation string) error {
+	return s.repo.UpdateOperation(ctx, paymentRef, operation)
+}
