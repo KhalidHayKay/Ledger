@@ -60,23 +60,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrIdempotencyKeyReuse):
-			render.ErrorJSON(w, err.Error(), http.StatusConflict)
-
-		case errors.Is(err, ErrBankDeclined):
-			render.ErrorJSON(w, err.Error(), http.StatusUnprocessableEntity)
-
-		case errors.Is(err, ErrInconsistentState):
-			render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
-
-		case errors.Is(err, ErrInternal):
-			render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)
-
-		default:
-			render.ErrorJSON(w, "Unexpected error", http.StatusInternalServerError)
-		}
-
+		renderErr(err, w)
 		return
 	}
 

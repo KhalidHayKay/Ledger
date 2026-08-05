@@ -2,7 +2,6 @@ package notifier
 
 import (
 	"context"
-	"log"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -33,10 +32,8 @@ func (s *RedisSubscription) Wait(ctx context.Context) (string, error) {
 
 	select {
 	case msg := <-ch:
-		log.Printf("Received message from channel %s: %s", msg.Channel, msg.Payload)
 		return msg.Payload, nil
 	case <-ctx.Done():
-		log.Printf("Context done while waiting for message: %v", ctx.Err())
 		return "", ctx.Err()
 	}
 }
