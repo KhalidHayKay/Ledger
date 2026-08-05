@@ -23,3 +23,19 @@ func (c *Client) EnqueueCreate(ctx context.Context, p tasks.CreatePayload) error
 	log.Printf("Enqueued create payment task for intent %s", p.IntentId)
 	return nil
 }
+
+func (c *Client) EnqueueCapture(ctx context.Context, p tasks.CapturePayload) error {
+	task, err := tasks.NewCapturePaymentTask(p)
+	if err != nil {
+		return err
+	}
+
+	err = c.Enqueue(ctx, task, asynq.Queue("critical"), asynq.MaxRetry(5))
+	if err != nil {
+
+		return err
+	}
+
+	log.Printf("Enqueued capture payment task for intent %s", p.IntentId)
+	return nil
+}

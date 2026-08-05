@@ -32,7 +32,7 @@ func (s *Service) Create(
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	// subscribe before enqueuing - avoid missing the signal
+	// subscribing before enqueuing to avoid missing the signal
 	resultCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
