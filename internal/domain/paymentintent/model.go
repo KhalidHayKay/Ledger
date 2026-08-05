@@ -14,6 +14,13 @@ const (
 	PaymentStatusFailed     string = "failed"
 )
 
+const (
+	PaymentAuthorizationOp string = "authorizing"
+	PaymentCaptureOp       string = "capturing"
+	PaymentRefundOp        string = "refunding"
+	PaymentCancelOp        string = "canceling"
+)
+
 type PaymentIntent struct {
 	Id         string     `json:"id,omitempty"`
 	PaymentRef string     `json:"payment_reference"`
@@ -22,6 +29,7 @@ type PaymentIntent struct {
 	OrderId    string     `json:"order_id"`
 	CustomerId string     `json:"customer_id"`
 	Status     string     `json:"status"`
+	CurrentOp  string     `json:"current_operation"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  *time.Time `json:"updated_at,omitempty"`
 

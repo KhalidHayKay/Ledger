@@ -33,6 +33,18 @@ func (s *Service) Capture(ctx context.Context,
 		return PaymentIntent{}, false, ErrInternal
 	}
 
+	err = s.startOperation(ctx, pi.PaymentRef, PaymentCaptureOp)
+	if err != nil {
+		log.Printf("Error starting capture process for payment reference %s: %s", paymentRef, err)
+		return PaymentIntent{}, false, ErrInternal
+	}
+
+	err = s.idempotencyService.ReserveKey(ctx, idempotencyKey, requestHash, paymentRef)
+	if err != nil {
+		log.Printf("Error reserving idempotency key: %s", err)
+		return PaymentIntent{}, false, ErrInternal
+	}
+
 	// subscribing before enqueuing to avoid missing the signal
 	resultCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -64,12 +76,4 @@ func (s *Service) Capture(ctx context.Context,
 
 	pi.Status = result
 	return pi, false, nil
-
-	// err = s.idempotencyService.ReserveKey(ctx, idempotencyKey, requestHash, paymentRef)
-	// if err != nil {
-	// 	log.Printf("Error reserving idempotency key: %s", err)
-	// 	return PaymentIntent{}, false, ErrInternal
-	// }
-
-	// return pi, false, nil
 }

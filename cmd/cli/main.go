@@ -23,6 +23,7 @@ var migrations = []cmdforge.Migration{
 				amount 			  		BIGINT NOT NULL,
 				currency          		CHAR(3) NOT NULL,
 				status            		TEXT NOT NULL,
+				current_operation		TEXT,
 				created_at        		TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 				updated_at        		TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			);
