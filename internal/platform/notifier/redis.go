@@ -2,7 +2,6 @@ package notifier
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 
 	"github.com/redis/go-redis/v9"
@@ -22,11 +21,7 @@ func (n *RedisNotifier) Subscribe(channel string) Subscription {
 }
 
 func (n *RedisNotifier) Publish(ctx context.Context, channel, result string) error {
-	data, err := json.Marshal(result)
-	if err != nil {
-		return err
-	}
-	return n.rdb.Publish(ctx, channel, data).Err()
+	return n.rdb.Publish(ctx, channel, result).Err()
 }
 
 type RedisSubscription struct {

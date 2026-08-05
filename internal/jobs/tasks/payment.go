@@ -36,22 +36,10 @@ func NewCreatePaymentTask(p CreatePayload) (*asynq.Task, error) {
 	return asynq.NewTask(TypeCreatePayment, payload), nil
 }
 
-// I think handler shoild not be here
-// type BankHandler struct {
-// 	bankRepo bank.Repository
-// }
-
-// func NewBankHandler(bankRepo bank.Repository) *BankHandler {
-// 	return &BankHandler{bankRepo}
-// }
-
-// func (h *BankHandler) BankRequest(ctx context.Context, t *asynq.Task) error {
-// 	var p BankRequestPayload
-// 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-// 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
-// 	}
-
-// 	/////
-
-// 	return nil
-// }
+func NewCapturePaymentTask(p CapturePayload) (*asynq.Task, error) {
+	payload, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeCapturePayment, payload), nil
+}

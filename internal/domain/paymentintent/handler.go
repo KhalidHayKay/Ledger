@@ -241,7 +241,7 @@ func renderErr(err error, w http.ResponseWriter) {
 		render.ErrorJSON(w, err.Error(), http.StatusConflict)
 
 	case errors.Is(err, ErrBankDeclined):
-		render.ErrorJSON(w, err.Error(), http.StatusUnprocessableEntity)
+		render.ErrorJSON(w, err.Error(), http.StatusBadRequest)
 
 	case errors.Is(err, ErrInconsistentState):
 		render.ErrorJSON(w, err.Error(), http.StatusInternalServerError)

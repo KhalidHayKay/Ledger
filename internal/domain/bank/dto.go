@@ -77,3 +77,8 @@ func (r ficMartRefundResponse) ToPayment() Payment {
 		RefundedAt: &r.RefundedAt,
 	}
 }
+
+type ficMartErrorResponse struct {
+	Code    string `json:"error"`
+	Message string `json:"message"`
+}

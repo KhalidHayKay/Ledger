@@ -38,7 +38,7 @@ func (s *Service) Cancel(ctx context.Context,
 	}
 
 	err = s.uow.RunInTx(ctx, func(r TxRepos) error {
-		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCanceled, payment.VoidId)
+		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCanceled, payment.VoidId, "")
 		if err != nil {
 			return err
 		}

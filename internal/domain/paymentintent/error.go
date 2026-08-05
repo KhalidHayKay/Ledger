@@ -15,3 +15,19 @@ var (
 
 	ErrInconsistentState = errors.New("payment intent inconsistent with idempotency state")
 )
+
+type BankDeclinedError struct {
+	Reason string
+}
+
+func (e *BankDeclinedError) Error() string {
+	return e.Reason
+}
+
+func (e *BankDeclinedError) Unwrap() error {
+	return ErrBankDeclined
+}
+
+func NewBankDeclinedError(reason string) error {
+	return &BankDeclinedError{Reason: reason}
+}

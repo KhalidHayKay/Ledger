@@ -63,14 +63,18 @@ func (s *Service) Create(
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	state, err := sub.Wait(resultCtx)
-	log.Printf("End of wait. State: %v, Error: %v", state, err)
-	if err != nil || state == "" {
+	result, err := sub.Wait(resultCtx)
+	log.Printf("End of wait. State: %v, Error: %v", result, err)
+	if err != nil || result == "" {
 		return pi, false, nil
 	}
 
-	// log.Printf("Received payment status for %v: %v", pi.PaymentRef, state)
-	pi.Status = state
+	if result != PaymentStatusAuthorized {
+		log.Printf("Payment failed for %v: %s", pi.PaymentRef, result)
+		return PaymentIntent{}, false, NewBankDeclinedError(result)
+	}
+
+	pi.Status = result
 	return pi, false, nil
 }
 

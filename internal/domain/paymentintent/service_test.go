@@ -36,6 +36,35 @@ type repoMock struct {
 	calls []string
 }
 
+// type notifierMock struct {
+// 	publishFn func(ctx context.Context, channel, result string) error
+// 	waitFn    func(ctx context.Context) (string, error)
+// }
+
+// func (n *notifierMock) Subscribe(channel string) notifier.Subscription {
+// 	return &testSubscription{waitFn: n.waitFn}
+// }
+
+// func (n *notifierMock) Publish(ctx context.Context, channel, result string) error {
+// 	if n.publishFn != nil {
+// 		return n.publishFn(ctx, channel, result)
+// 	}
+// 	return nil
+// }
+
+// type testSubscription struct {
+// 	waitFn func(ctx context.Context) (string, error)
+// }
+
+// func (s *testSubscription) Wait(ctx context.Context) (string, error) {
+// 	if s.waitFn != nil {
+// 		return s.waitFn(ctx)
+// 	}
+// 	return "", nil
+// }
+
+// func (s *testSubscription) Close() {}
+
 func (r *repoMock) Create(ctx context.Context, amount int, currency, orderId, customerId string) (PaymentIntent, error) {
 	r.calls = append(r.calls, createCall)
 	return r.CreateFn(ctx, amount, currency, orderId, customerId)
@@ -63,15 +92,15 @@ func (r *repoMock) GetWithEvent(ctx context.Context, paymentRef, state string) (
 
 // Payment event mocks
 type paymentEventRepoMock struct {
-	CreateFn               func(ctx context.Context, intentId, status, providerStateId string) (paymentevent.PaymentEvent, error)
+	CreateFn               func(ctx context.Context, intentId, status, providerStateId, metadata string) (paymentevent.PaymentEvent, error)
 	GetByIntentAndStatusFn func(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentevent.PaymentEvent, error)
 
 	calls []string
 }
 
-func (r *paymentEventRepoMock) Create(ctx context.Context, intentId, status, providerStateId string) (paymentevent.PaymentEvent, error) {
+func (r *paymentEventRepoMock) Create(ctx context.Context, intentId, status, providerStateId, metadata string) (paymentevent.PaymentEvent, error) {
 	r.calls = append(r.calls, createCall)
-	return r.CreateFn(ctx, intentId, status, providerStateId)
+	return r.CreateFn(ctx, intentId, status, providerStateId, metadata)
 }
 
 func (r *paymentEventRepoMock) GetByIntentAndStatus(ctx context.Context, paymentIntentId, paymentIntentStatus string) (paymentevent.PaymentEvent, error) {

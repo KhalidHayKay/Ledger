@@ -42,7 +42,7 @@ func (r *FicMartBankRepo) Authorize(ctx context.Context, idempotencyKey string, 
 
 	var resData ficMartAuthorizeResponse
 	if err := json.Unmarshal(body, &resData); err != nil {
-		return Payment{}, err
+		return Payment{}, fmt.Errorf("%w: %v", ErrInternal, err)
 	}
 
 	return resData.ToPayment(), nil
@@ -61,7 +61,7 @@ func (r *FicMartBankRepo) Capture(ctx context.Context, idempotencyKey, authoriza
 
 	var resData ficMartCaptureResponse
 	if err := json.Unmarshal(body, &resData); err != nil {
-		return Payment{}, err
+		return Payment{}, fmt.Errorf("%w: %v", ErrInternal, err)
 	}
 
 	return resData.ToPayment(), nil
@@ -79,7 +79,7 @@ func (r *FicMartBankRepo) Void(ctx context.Context, idempotencyKey, authorizatio
 
 	var resData ficMartVoidResponse
 	if err := json.Unmarshal(body, &resData); err != nil {
-		return Payment{}, err
+		return Payment{}, fmt.Errorf("%w: %v", ErrInternal, err)
 	}
 
 	return resData.ToPayment(), nil
@@ -98,7 +98,7 @@ func (r *FicMartBankRepo) Refund(ctx context.Context, idempotencyKey, captureId 
 
 	var resData ficMartRefundResponse
 	if err := json.Unmarshal(body, &resData); err != nil {
-		return Payment{}, err
+		return Payment{}, fmt.Errorf("%w: %v", ErrInternal, err)
 	}
 
 	return resData.ToPayment(), nil
@@ -107,13 +107,14 @@ func (r *FicMartBankRepo) Refund(ctx context.Context, idempotencyKey, captureId 
 func (r *FicMartBankRepo) makePostRequest(ctx context.Context, endpoint string, data any, idempotencyKey string) ([]byte, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		log.Printf("Error encoding data: %s", err)
-		return []byte(""), err
+		log.Printf("Error encoding request payload: %s", err)
+		return nil, ErrInternal
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", config.Env.BankAPIBaseURL+endpoint, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, config.Env.BankAPIBaseURL+endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return []byte(""), err
+		log.Printf("Error building request: %s", err)
+		return nil, ErrInternal
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -122,7 +123,7 @@ func (r *FicMartBankRepo) makePostRequest(ctx context.Context, endpoint string, 
 	res, err := r.client.Do(req)
 	if err != nil {
 		log.Printf("Client request error: %s", err)
-		return []byte(""), err
+		return nil, fmt.Errorf("%w: %v", ErrBankTransient, err)
 	}
 	defer func() {
 		_ = res.Body.Close()
@@ -130,14 +131,25 @@ func (r *FicMartBankRepo) makePostRequest(ctx context.Context, endpoint string, 
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		log.Printf("Error reading response body, %s", err)
-		return []byte(""), err
+		log.Printf("Error reading response body: %s", err)
+		return nil, ErrInternal
 	}
 
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		log.Printf("API error: status=%d body=%s", res.StatusCode, string(body))
-		return []byte(""), fmt.Errorf("bank API error: %s", string(body))
-	}
+	switch {
+	case res.StatusCode >= 200 && res.StatusCode < 300:
+		return body, nil
 
-	return body, nil
+	case res.StatusCode >= 500:
+		log.Printf("Bank transient error: status=%d body=%s", res.StatusCode, string(body))
+		return nil, fmt.Errorf("%w: status=%d", ErrBankTransient, res.StatusCode)
+
+	default:
+		var apiErr ficMartErrorResponse
+		if jsonErr := json.Unmarshal(body, &apiErr); jsonErr != nil {
+			log.Printf("Bank terminal error (unparseable body): status=%d body=%s", res.StatusCode, string(body))
+			return nil, &APIError{StatusCode: res.StatusCode, Code: "unknown", Message: string(body)}
+		}
+		log.Printf("Bank terminal error: status=%d code=%s message=%s", res.StatusCode, apiErr.Code, apiErr.Message)
+		return nil, &APIError{StatusCode: res.StatusCode, Code: apiErr.Code, Message: apiErr.Message}
+	}
 }
