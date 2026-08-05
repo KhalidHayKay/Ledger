@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"ledger/internal/domain/bank"
 	"ledger/internal/domain/paymentintent"
@@ -35,48 +34,9 @@ func (w *PaymentWorker) HandleCreate(ctx context.Context, t *asynq.Task) error {
 	}
 
 	payment, err := w.bankRepo.Authorize(ctx, p.IdempotencyKey, *p.BankInput)
-	if err != nil {
-		if !bank.IsTerminal(err) {
-			retried, _ := asynq.GetRetryCount(ctx)
-			maxRetry, _ := asynq.GetMaxRetry(ctx)
-
-			if retried >= maxRetry {
-				return w.terminateRetry(ctx, p)
-			}
-
-			log.Printf("Transient bank error for %v, will retry: %s", p.PaymentRef, err)
-			return err
-		}
-
-		reason := err.Error()
-		var apiErr *bank.APIError
-		if errors.As(err, &apiErr) {
-			reason = apiErr.Message
-		}
-
-		txErr := w.uow.RunInTx(ctx, func(r paymentintent.TxRepos) error {
-			ev, err := r.PaymentEvent.Create(
-				ctx, p.IntentId,
-				paymentintent.PaymentStatusFailed,
-				payment.AuthorizationId,
-				reason,
-			)
-			if err != nil {
-				return err
-			}
-			return r.PaymentIntent.UpdateState(ctx, p.PaymentRef, ev.State)
-		})
-		if txErr != nil {
-			log.Printf("Error recording terminal failure for %v: %s", p.PaymentRef, txErr)
-			return txErr
-		}
-
-		if pubErr := w.notifier.Publish(ctx, p.PaymentRef, reason); pubErr != nil {
-			log.Printf("Error publishing failed status for %v: %s", p.PaymentRef, pubErr)
-		}
-
-		log.Printf("Payment declined for %v: %s", p.PaymentRef, err)
-		return fmt.Errorf("%v: %w", err, asynq.SkipRetry)
+	bankErr := w.handleBankError(ctx, payment, p.PaymentRef, p.IntentId, err)
+	if bankErr != nil {
+		return bankErr
 	}
 
 	err = w.uow.RunInTx(ctx, func(r paymentintent.TxRepos) error {
@@ -104,29 +64,39 @@ func (w *PaymentWorker) HandleCreate(ctx context.Context, t *asynq.Task) error {
 	return nil
 }
 
-func (w *PaymentWorker) terminateRetry(ctx context.Context, p tasks.CreatePayload) error {
-	var err error
-	txErr := w.uow.RunInTx(ctx, func(r paymentintent.TxRepos) error {
-		ev, err := r.PaymentEvent.Create(
+func (w *PaymentWorker) HandleCapture(ctx context.Context, t *asynq.Task) error {
+	var p tasks.CapturePayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return fmt.Errorf("%v: %w", err, asynq.SkipRetry)
+	}
+
+	payment, err := w.bankRepo.Capture(ctx, p.IdempotencyKey, p.StateId, p.Amount)
+	bankErr := w.handleBankError(ctx, payment, p.PaymentRef, p.IntentId, err)
+	if bankErr != nil {
+		return bankErr
+	}
+
+	err = w.uow.RunInTx(ctx, func(r paymentintent.TxRepos) error {
+		event, err := r.PaymentEvent.Create(
 			ctx, p.IntentId,
-			paymentintent.PaymentStatusFailed,
-			"", // no authorization ID
-			"bank unreachable after max retries",
+			paymentintent.PaymentStatusCaptured,
+			payment.CaptureId, "",
 		)
 		if err != nil {
 			return err
 		}
-		return r.PaymentIntent.UpdateState(ctx, p.PaymentRef, ev.State)
+
+		return r.PaymentIntent.UpdateState(ctx, p.PaymentRef, event.State)
 	})
-	if txErr != nil {
-		log.Printf("Error recording exhausted-retry failure for %v: %s", p.PaymentRef, txErr)
-		return txErr
+	if err != nil {
+		log.Printf("Error creating payment event for state to %v: %s", paymentintent.PaymentStatusCaptured, err)
+		return err
 	}
 
-	if pubErr := w.notifier.Publish(ctx, p.PaymentRef, paymentintent.PaymentStatusFailed); pubErr != nil {
-		log.Printf("Error publishing exhausted-retry status for %v: %s", p.PaymentRef, pubErr)
+	if pubErr := w.notifier.Publish(ctx, p.PaymentRef, paymentintent.PaymentStatusCaptured); pubErr != nil {
+		log.Printf("Error publishing captured status for %v: %s", p.PaymentRef, pubErr)
 	}
 
-	log.Printf("Retries exhausted for %v: %s", p.PaymentRef, err)
-	return fmt.Errorf("%v: %w", err, asynq.SkipRetry)
+	log.Printf("Payment captured for %v: %s", p.PaymentRef, payment.CaptureId)
+	return nil
 }

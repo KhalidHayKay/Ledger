@@ -22,10 +22,11 @@ type CreatePayload struct {
 }
 
 type CapturePayload struct {
-	PaymentRef      string
-	IdempotencyKey  string
-	AuthorizationId string
-	Amount          int
+	IdempotencyKey string
+	IntentId       string
+	PaymentRef     string
+	StateId        string
+	Amount         int
 }
 
 func NewCreatePaymentTask(p CreatePayload) (*asynq.Task, error) {

@@ -3,7 +3,9 @@ package paymentintent
 import (
 	"context"
 	"errors"
+	"ledger/internal/jobs/tasks"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -31,38 +33,43 @@ func (s *Service) Capture(ctx context.Context,
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	payment, err := s.bankRepo.Capture(ctx, idempotencyKey, pi.CurrentEvent.ExternalStateId, amount)
-	if err != nil {
-		log.Printf("Bank capture failed for payment reference %s: %s", paymentRef, err)
-		return PaymentIntent{}, false, ErrBankDeclined
-	}
+	// subscribing before enqueuing to avoid missing the signal
+	resultCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
-	err = s.uow.RunInTx(ctx, func(r TxRepos) error {
-		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCaptured, payment.CaptureId, "")
-		if err != nil {
-			return err
-		}
+	sub := s.notifier.Subscribe(pi.PaymentRef)
+	defer sub.Close()
 
-		err = r.PaymentIntent.UpdateState(ctx, paymentRef, event.State)
-		if err != nil {
-			return err
-		}
-
-		pi.Status = event.State
-		pi.CurrentEvent = nil
-
-		return nil
+	err = s.queue.EnqueueCapture(ctx, tasks.CapturePayload{
+		IdempotencyKey: idempotencyKey,
+		IntentId:       pi.Id,
+		PaymentRef:     pi.PaymentRef,
+		StateId:        pi.CurrentEvent.ExternalStateId,
+		Amount:         pi.Amount,
 	})
 	if err != nil {
-		log.Printf("Error creating payment event for state to %v: %s", PaymentStatusCaptured, err)
+		log.Printf("Error enqueuing capture payment task: %s", err)
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	err = s.idempotencyService.ReserveKey(ctx, idempotencyKey, requestHash, paymentRef)
-	if err != nil {
-		log.Printf("Error reserving idempotency key: %s", err)
-		return PaymentIntent{}, false, ErrInternal
+	result, err := sub.Wait(resultCtx)
+	if err != nil || result == "" {
+		return pi, false, nil
 	}
 
+	if result != PaymentStatusCaptured {
+		log.Printf("Payment failed for %v: %s", pi.PaymentRef, result)
+		return PaymentIntent{}, false, NewBankDeclinedError(result)
+	}
+
+	pi.Status = result
 	return pi, false, nil
+
+	// err = s.idempotencyService.ReserveKey(ctx, idempotencyKey, requestHash, paymentRef)
+	// if err != nil {
+	// 	log.Printf("Error reserving idempotency key: %s", err)
+	// 	return PaymentIntent{}, false, ErrInternal
+	// }
+
+	// return pi, false, nil
 }
