@@ -38,7 +38,7 @@ func (s *Service) Capture(ctx context.Context,
 	}
 
 	err = s.uow.RunInTx(ctx, func(r TxRepos) error {
-		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCaptured, payment.CaptureId)
+		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCaptured, payment.CaptureId, "")
 		if err != nil {
 			return err
 		}

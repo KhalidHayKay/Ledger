@@ -20,18 +20,19 @@ func NewPostgresRepo(db DBTX) *PostgresRepo {
 	return &PostgresRepo{db}
 }
 
-func (r *PostgresRepo) Create(ctx context.Context, intentId, status, providerStateId string) (PaymentEvent, error) {
+func (r *PostgresRepo) Create(ctx context.Context, intentId, status, providerStateId, metadata string) (PaymentEvent, error) {
 	var event PaymentEvent
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO payment_events (
-			payment_intent_id, state, external_state_id
+			payment_intent_id, state, external_state_id, metadata
 		)
-		VALUES ($1, $2, $3)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id::text, payment_intent_id, state, external_state_id, metadata, created_at
 	`,
 		intentId,
 		status,
 		providerStateId,
+		metadata,
 	).Scan(
 		&event.Id,
 		&event.PaymentIntentId,

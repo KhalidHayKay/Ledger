@@ -122,7 +122,7 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 			}
 
 			ppRepo := &paymentEventRepoMock{
-				CreateFn: func(ctx context.Context, intentId, status, bankAuthId string) (paymentevent.PaymentEvent, error) {
+				CreateFn: func(ctx context.Context, intentId, status, bankAuthId, metadata string) (paymentevent.PaymentEvent, error) {
 					return paymentevent.PaymentEvent{}, nil
 				},
 			}

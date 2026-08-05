@@ -39,7 +39,7 @@ func (s *Service) Refund(ctx context.Context,
 	}
 
 	err = s.uow.RunInTx(ctx, func(r TxRepos) error {
-		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusRefunded, payment.RefundId)
+		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusRefunded, payment.RefundId, "")
 		if err != nil {
 			return err
 		}
