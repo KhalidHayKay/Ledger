@@ -74,6 +74,8 @@ func (s *Service) Create(
 	}
 
 	pi.Status = result
+	pi.CurrentOp = ""
+
 	return pi, false, nil
 }
 
@@ -103,6 +105,9 @@ func (s *Service) createPendingIntent(ctx context.Context, input CreateInput) (P
 		}
 
 		err = r.PaymentIntent.UpdateOperation(ctx, ref, PaymentAuthorizationOp)
+		if err != nil {
+			return err
+		}
 
 		pi.PaymentRef = ref
 		pi.CurrentOp = PaymentAuthorizationOp

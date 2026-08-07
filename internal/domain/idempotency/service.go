@@ -59,3 +59,7 @@ func (s *Service) GetKeyReserve(ctx context.Context, idempotencyKey string) (*En
 
 	return &entry, nil
 }
+
+func (s *Service) RemoveKey(ctx context.Context, idempotencyKey string) error {
+	return s.repo.RemoveKey(ctx, fmt.Sprintf("idempotency-key:%s", idempotencyKey))
+}

@@ -53,6 +53,12 @@ func (w *PaymentWorker) HandleCreate(ctx context.Context, t *asynq.Task) error {
 		if err != nil {
 			return err
 		}
+
+		err = r.PaymentIntent.UpdateOperation(ctx, p.PaymentRef, "")
+		if err != nil {
+			return err
+		}
+
 		return r.PaymentIntent.UpdateState(ctx, p.PaymentRef, event.State)
 	})
 	if err != nil {
@@ -90,6 +96,11 @@ func (w *PaymentWorker) HandleCapture(ctx context.Context, t *asynq.Task) error 
 			paymentintent.PaymentStatusCaptured,
 			payment.CaptureId, "",
 		)
+		if err != nil {
+			return err
+		}
+
+		err = r.PaymentIntent.UpdateOperation(ctx, p.PaymentRef, "")
 		if err != nil {
 			return err
 		}

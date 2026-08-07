@@ -8,6 +8,7 @@ import (
 	"ledger/internal/domain/idempotency"
 	"ledger/internal/domain/paymentevent"
 	"ledger/internal/jobs/queue"
+	"ledger/internal/jobs/tasks"
 	"ledger/internal/platform/config"
 	"ledger/internal/platform/notifier"
 	"testing"
@@ -138,14 +139,30 @@ func TestNewPaymentIntentIsCreatedForDifferentIdempotencyKeys(t *testing.T) {
 				},
 			}
 
+			notifier := &notifierMock{
+				publishFn: func(ctx context.Context, channel, result string) error {
+					return nil
+				},
+
+				waitFn: func(ctx context.Context) (string, error) {
+					return PaymentStatusAuthorized, nil
+				},
+			}
+
+			queue := &queueMock{
+				EnqueueCreateFn: func(ctx context.Context, payload tasks.CreatePayload) error {
+					return nil
+				},
+			}
+
 			service := NewService(
 				repo,
 				&paymentEventRepoMock{},
 				bankRepo,
 				uow,
 				idempotencyService,
-				&queue.Client{},
-				&notifier.RedisNotifier{},
+				queue,
+				notifier,
 			)
 
 			paymentIntent, relayed, err := service.Create(

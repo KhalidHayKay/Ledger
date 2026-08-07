@@ -133,6 +133,7 @@ func (r *PostgresRepo) GetByRef(ctx context.Context, paymentRef string) (Payment
 			order_id,
 			customer_id,
 			status,
+			current_operation,
 			created_at
 		 FROM payment_intents
 		 WHERE payment_reference = $1
@@ -144,6 +145,7 @@ func (r *PostgresRepo) GetByRef(ctx context.Context, paymentRef string) (Payment
 		&intent.OrderId,
 		&intent.CustomerId,
 		&intent.Status,
+		&intent.CurrentOp,
 		&intent.CreatedAt,
 	)
 	if err != nil {

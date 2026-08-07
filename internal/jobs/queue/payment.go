@@ -14,7 +14,7 @@ func (c *Client) EnqueueCreate(ctx context.Context, p tasks.CreatePayload) error
 		return err
 	}
 
-	err = c.Enqueue(ctx, task, asynq.Queue("critical"), asynq.MaxRetry(5))
+	err = c.enqueue(ctx, task, asynq.Queue("critical"), asynq.MaxRetry(5))
 	if err != nil {
 
 		return err
@@ -30,7 +30,7 @@ func (c *Client) EnqueueCapture(ctx context.Context, p tasks.CapturePayload) err
 		return err
 	}
 
-	err = c.Enqueue(ctx, task, asynq.Queue("critical"), asynq.MaxRetry(5))
+	err = c.enqueue(ctx, task, asynq.Queue("critical"), asynq.MaxRetry(5))
 	if err != nil {
 
 		return err

@@ -68,7 +68,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Idempotent-Replayed", "true")
 	}
 
-	paymentIntent.Id = ""
+	paymentIntent = *stripPrivateFields(&paymentIntent)
 	render.JSON(w, http.StatusCreated, "Payment Intent created successfully", paymentIntent)
 }
 
@@ -109,7 +109,7 @@ func (h *Handler) Capture(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Idempotent-Replayed", "true")
 	}
 
-	paymentIntent.Id = ""
+	paymentIntent = *stripPrivateFields(&paymentIntent)
 	render.JSON(w, http.StatusCreated, "Payment captured successfully", paymentIntent)
 }
 
@@ -150,7 +150,7 @@ func (h *Handler) Refund(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Idempotent-Replayed", "true")
 	}
 
-	paymentIntent.Id = ""
+	paymentIntent = *stripPrivateFields(&paymentIntent)
 	render.JSON(w, http.StatusCreated, "Payment refunded successfully", paymentIntent)
 }
 
@@ -192,7 +192,7 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Idempotent-Replayed", "true")
 	}
 
-	paymentIntent.Id = ""
+	paymentIntent = *stripPrivateFields(&paymentIntent)
 	render.JSON(w, http.StatusCreated, "Payment successfully canceled", paymentIntent)
 }
 
@@ -209,7 +209,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	paymentIntent.Id = ""
+	paymentIntent = stripPrivateFields(paymentIntent)
 	render.JSON(w, http.StatusOK, "Payment intent retrieved successfully", paymentIntent)
 }
 
@@ -247,4 +247,10 @@ func renderErr(err error, w http.ResponseWriter) {
 	default:
 		render.ErrorJSON(w, "Unexpected error", http.StatusInternalServerError)
 	}
+}
+
+func stripPrivateFields(pi *PaymentIntent) *PaymentIntent {
+	pi.Id = ""
+	pi.CurrentEvent = nil
+	return pi
 }

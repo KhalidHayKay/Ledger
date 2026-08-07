@@ -22,3 +22,7 @@ func (r *RedisRepo) SaveKey(ctx context.Context, idempotencyKey string, entry st
 func (r *RedisRepo) GetByKey(ctx context.Context, idempotencyKey string) (string, error) {
 	return r.redis.Get(ctx, idempotencyKey).Result()
 }
+
+func (r *RedisRepo) RemoveKey(ctx context.Context, idempotencyKey string) error {
+	return r.redis.Del(ctx, idempotencyKey).Err()
+}
