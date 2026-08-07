@@ -38,6 +38,7 @@ func (s *Service) Capture(ctx context.Context,
 		log.Printf("Error starting capture process for payment reference %s: %s", paymentRef, err)
 		return PaymentIntent{}, false, ErrInternal
 	}
+	pi.CurrentOp = PaymentCaptureOp
 
 	err = s.idempotencyService.ReserveKey(ctx, idempotencyKey, requestHash, paymentRef)
 	if err != nil {
@@ -75,5 +76,7 @@ func (s *Service) Capture(ctx context.Context,
 	}
 
 	pi.Status = result
+	pi.CurrentOp = ""
+
 	return pi, false, nil
 }

@@ -13,8 +13,9 @@ const (
 )
 
 type repoMock struct {
-	SaveKeyFn  func(ctx context.Context, idempotencyKey string, entry string) error
-	GetByKeyFn func(ctx context.Context, idempotencyKey string) (string, error)
+	SaveKeyFn   func(ctx context.Context, idempotencyKey string, entry string) error
+	GetByKeyFn  func(ctx context.Context, idempotencyKey string) (string, error)
+	RemoveKeyFn func(ctx context.Context, idempotencyKey string) error
 
 	calls []string
 }
@@ -27,6 +28,11 @@ func (r *repoMock) SaveKey(ctx context.Context, idempotencyKey string, entry str
 func (r *repoMock) GetByKey(ctx context.Context, idempotencyKey string) (string, error) {
 	r.calls = append(r.calls, getByKeyCall)
 	return r.GetByKeyFn(ctx, idempotencyKey)
+}
+
+func (r *repoMock) RemoveKey(ctx context.Context, idempotencyKey string) error {
+	r.calls = append(r.calls, "RemoveKey")
+	return r.RemoveKeyFn(ctx, idempotencyKey)
 }
 
 func TestReserveKeyHappyPath(t *testing.T) {

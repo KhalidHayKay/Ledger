@@ -23,7 +23,7 @@ type Service struct {
 
 	idempotencyService *idempotency.Service
 
-	queue    *queue.Client
+	queue    queue.QueueInterface
 	notifier notifier.Notifier
 }
 
@@ -33,7 +33,7 @@ func NewService(
 	bankRepo bank.Repository,
 	uow UnitOfWork,
 	idempotencyService *idempotency.Service,
-	queueClient *queue.Client,
+	queueClient queue.QueueInterface,
 	notifier notifier.Notifier,
 ) *Service {
 	return &Service{

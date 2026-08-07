@@ -77,8 +77,10 @@ func main() {
 
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-
+		_, err := w.Write([]byte("OK"))
+		if err != nil {
+			log.Printf("Error writing health check response: %s", err)
+		}
 	})
 
 	router.Get("/payment/intent", paymentIntentHandler.Get)

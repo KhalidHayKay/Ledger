@@ -7,6 +7,7 @@ import (
 	"ledger/internal/domain/idempotency"
 	"ledger/internal/domain/paymentevent"
 	"ledger/internal/jobs/queue"
+	"ledger/internal/jobs/tasks"
 	"ledger/internal/platform/notifier"
 	"testing"
 )
@@ -36,35 +37,6 @@ type repoMock struct {
 
 	calls []string
 }
-
-// type notifierMock struct {
-// 	publishFn func(ctx context.Context, channel, result string) error
-// 	waitFn    func(ctx context.Context) (string, error)
-// }
-
-// func (n *notifierMock) Subscribe(channel string) notifier.Subscription {
-// 	return &testSubscription{waitFn: n.waitFn}
-// }
-
-// func (n *notifierMock) Publish(ctx context.Context, channel, result string) error {
-// 	if n.publishFn != nil {
-// 		return n.publishFn(ctx, channel, result)
-// 	}
-// 	return nil
-// }
-
-// type testSubscription struct {
-// 	waitFn func(ctx context.Context) (string, error)
-// }
-
-// func (s *testSubscription) Wait(ctx context.Context) (string, error) {
-// 	if s.waitFn != nil {
-// 		return s.waitFn(ctx)
-// 	}
-// 	return "", nil
-// }
-
-// func (s *testSubscription) Close() {}
 
 func (r *repoMock) Create(ctx context.Context, amount int, currency, orderId, customerId string) (PaymentIntent, error) {
 	r.calls = append(r.calls, createCall)
@@ -148,8 +120,9 @@ func (r *bankRepoMock) Refund(ctx context.Context, idempotencyKey, captureId str
 
 // Idempotency Repo Mocks
 type idempotencyRepoMock struct {
-	SaveKeyFn  func(ctx context.Context, idempotencyKey string, entry string) error
-	GetByKeyFn func(ctx context.Context, idempotencyKey string) (string, error)
+	SaveKeyFn   func(ctx context.Context, idempotencyKey string, entry string) error
+	GetByKeyFn  func(ctx context.Context, idempotencyKey string) (string, error)
+	RemoveKeyFn func(ctx context.Context, idempotencyKey string) error
 
 	calls []string
 }
@@ -164,6 +137,11 @@ func (r *idempotencyRepoMock) GetByKey(ctx context.Context, idempotencyKey strin
 	return r.GetByKeyFn(ctx, idempotencyKey)
 }
 
+func (r *idempotencyRepoMock) RemoveKey(ctx context.Context, idempotencyKey string) error {
+	r.calls = append(r.calls, "RemoveKey")
+	return r.RemoveKeyFn(ctx, idempotencyKey)
+}
+
 // UoW Mock
 type uowMock struct {
 	RunInTxFn func(ctx context.Context, fn func(TxRepos) error) error
@@ -173,6 +151,51 @@ func (u *uowMock) RunInTx(ctx context.Context, fn func(TxRepos) error) error {
 	return u.RunInTxFn(ctx, fn)
 }
 
+// Notifier Mock
+type notifierMock struct {
+	publishFn func(ctx context.Context, channel, result string) error
+	waitFn    func(ctx context.Context) (string, error)
+}
+
+func (n *notifierMock) Subscribe(channel string) notifier.Subscription {
+	return &testSubscription{waitFn: n.waitFn}
+}
+
+func (n *notifierMock) Publish(ctx context.Context, channel, result string) error {
+	if n.publishFn != nil {
+		return n.publishFn(ctx, channel, result)
+	}
+	return nil
+}
+
+type testSubscription struct {
+	waitFn func(ctx context.Context) (string, error)
+}
+
+func (s *testSubscription) Wait(ctx context.Context) (string, error) {
+	if s.waitFn != nil {
+		return s.waitFn(ctx)
+	}
+	return "", nil
+}
+
+func (s *testSubscription) Close() {}
+
+// Queue mock
+type queueMock struct {
+	EnqueueCreateFn  func(ctx context.Context, payload tasks.CreatePayload) error
+	EnqueueCaptureFn func(ctx context.Context, payload tasks.CapturePayload) error
+}
+
+func (q *queueMock) EnqueueCreate(ctx context.Context, payload tasks.CreatePayload) error {
+	return q.EnqueueCreateFn(ctx, payload)
+}
+
+func (q *queueMock) EnqueueCapture(ctx context.Context, payload tasks.CapturePayload) error {
+	return q.EnqueueCaptureFn(ctx, payload)
+}
+
+// Base test
 func TestGetReservedHappyPath(t *testing.T) {
 	requestHash := "req-hash"
 	paymentRef := "payment-ref"
