@@ -29,6 +29,21 @@ type CapturePayload struct {
 	Amount         int
 }
 
+type RefundPayload struct {
+	IdempotencyKey string
+	IntentId       string
+	PaymentRef     string
+	StateId        string
+	Amount         int
+}
+
+type CancelPayload struct {
+	IdempotencyKey string
+	IntentId       string
+	PaymentRef     string
+	StateId        string
+}
+
 func NewCreatePaymentTask(p CreatePayload) (*asynq.Task, error) {
 	payload, err := json.Marshal(p)
 	if err != nil {
@@ -43,4 +58,20 @@ func NewCapturePaymentTask(p CapturePayload) (*asynq.Task, error) {
 		return nil, err
 	}
 	return asynq.NewTask(TypeCapturePayment, payload), nil
+}
+
+func NewRefundPaymentTask(p RefundPayload) (*asynq.Task, error) {
+	payload, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeRefundPayment, payload), nil
+}
+
+func NewCancelPaymentTask(p CancelPayload) (*asynq.Task, error) {
+	payload, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeCancelPayment, payload), nil
 }

@@ -119,3 +119,95 @@ func (w *PaymentWorker) HandleCapture(ctx context.Context, t *asynq.Task) error 
 	log.Printf("Payment captured for %v: %s", p.PaymentRef, payment.CaptureId)
 	return nil
 }
+
+func (w *PaymentWorker) HandleRefund(ctx context.Context, t *asynq.Task) error {
+	var p tasks.RefundPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return fmt.Errorf("%v: %w", err, asynq.SkipRetry)
+	}
+
+	payment, err := w.bankRepo.Refund(ctx, p.IdempotencyKey, p.StateId, p.Amount)
+
+	if err := w.handleTransientError(ctx, p.PaymentRef, p.IntentId, err); err != nil {
+		return err
+	}
+
+	if err := w.handleTerminalError(ctx, payment, p.PaymentRef, p.IntentId, err); err != nil {
+		return err
+	}
+
+	err = w.uow.RunInTx(ctx, func(r paymentintent.TxRepos) error {
+		event, err := r.PaymentEvent.Create(
+			ctx, p.IntentId,
+			paymentintent.PaymentStatusRefunded,
+			payment.RefundId, "",
+		)
+		if err != nil {
+			return err
+		}
+
+		err = r.PaymentIntent.UpdateOperation(ctx, p.PaymentRef, "")
+		if err != nil {
+			return err
+		}
+
+		return r.PaymentIntent.UpdateState(ctx, p.PaymentRef, event.State)
+	})
+	if err != nil {
+		log.Printf("Error creating payment event for state to %v: %s", paymentintent.PaymentStatusRefunded, err)
+		return err
+	}
+
+	if pubErr := w.notifier.Publish(ctx, p.PaymentRef, paymentintent.PaymentStatusRefunded); pubErr != nil {
+		log.Printf("Error publishing refunded status for %v: %s", p.PaymentRef, pubErr)
+	}
+
+	log.Printf("Payment refunded for %v: %s", p.PaymentRef, payment.RefundId)
+	return nil
+}
+
+func (w *PaymentWorker) HandleCancel(ctx context.Context, t *asynq.Task) error {
+	var p tasks.CancelPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return fmt.Errorf("%v: %w", err, asynq.SkipRetry)
+	}
+
+	payment, err := w.bankRepo.Void(ctx, p.IdempotencyKey, p.StateId)
+
+	if err := w.handleTransientError(ctx, p.PaymentRef, p.IntentId, err); err != nil {
+		return err
+	}
+
+	if err := w.handleTerminalError(ctx, payment, p.PaymentRef, p.IntentId, err); err != nil {
+		return err
+	}
+
+	err = w.uow.RunInTx(ctx, func(r paymentintent.TxRepos) error {
+		event, err := r.PaymentEvent.Create(
+			ctx, p.IntentId,
+			paymentintent.PaymentStatusCanceled,
+			payment.VoidId, "",
+		)
+		if err != nil {
+			return err
+		}
+
+		err = r.PaymentIntent.UpdateOperation(ctx, p.PaymentRef, "")
+		if err != nil {
+			return err
+		}
+
+		return r.PaymentIntent.UpdateState(ctx, p.PaymentRef, event.State)
+	})
+	if err != nil {
+		log.Printf("Error creating payment event for state to %v: %s", paymentintent.PaymentStatusCanceled, err)
+		return err
+	}
+
+	if pubErr := w.notifier.Publish(ctx, p.PaymentRef, paymentintent.PaymentStatusCanceled); pubErr != nil {
+		log.Printf("Error publishing canceled status for %v: %s", p.PaymentRef, pubErr)
+	}
+
+	log.Printf("Payment canceled for %v: %s", p.PaymentRef, payment.VoidId)
+	return nil
+}
