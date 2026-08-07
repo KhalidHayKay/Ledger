@@ -185,6 +185,8 @@ func (s *testSubscription) Close() {}
 type queueMock struct {
 	EnqueueCreateFn  func(ctx context.Context, payload tasks.CreatePayload) error
 	EnqueueCaptureFn func(ctx context.Context, payload tasks.CapturePayload) error
+	EnqueueRefundFn  func(ctx context.Context, payload tasks.RefundPayload) error
+	EnqueueCancelFn  func(ctx context.Context, payload tasks.CancelPayload) error
 }
 
 func (q *queueMock) EnqueueCreate(ctx context.Context, payload tasks.CreatePayload) error {
@@ -193,6 +195,14 @@ func (q *queueMock) EnqueueCreate(ctx context.Context, payload tasks.CreatePaylo
 
 func (q *queueMock) EnqueueCapture(ctx context.Context, payload tasks.CapturePayload) error {
 	return q.EnqueueCaptureFn(ctx, payload)
+}
+
+func (q *queueMock) EnqueueRefund(ctx context.Context, payload tasks.RefundPayload) error {
+	return q.EnqueueRefundFn(ctx, payload)
+}
+
+func (q *queueMock) EnqueueCancel(ctx context.Context, payload tasks.CancelPayload) error {
+	return q.EnqueueCancelFn(ctx, payload)
 }
 
 // Base test

@@ -3,7 +3,9 @@ package paymentintent
 import (
 	"context"
 	"errors"
+	"ledger/internal/jobs/tasks"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -31,38 +33,48 @@ func (s *Service) Cancel(ctx context.Context,
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	payment, err := s.bankRepo.Void(ctx, idempotencyKey, pi.CurrentEvent.ExternalStateId)
+	err = s.startOperation(ctx, pi.PaymentRef, PaymentCancelOp)
 	if err != nil {
-		log.Printf("Bank failed to void payment: %s", err)
-		return PaymentIntent{}, false, ErrBankDeclined
+		log.Printf("Error starting cancel process for payment reference %s: %s", paymentRef, err)
+		return PaymentIntent{}, false, ErrInternal
+	}
+	pi.CurrentOp = PaymentCancelOp
+
+	err = s.idempotencyService.ReserveKey(ctx, idempotencyKey, requestHash, paymentRef)
+	if err != nil {
+		log.Printf("Error reserving idempotency key: %s", err)
+		return PaymentIntent{}, false, ErrInternal
 	}
 
-	err = s.uow.RunInTx(ctx, func(r TxRepos) error {
-		event, err := r.PaymentEvent.Create(ctx, pi.Id, PaymentStatusCanceled, payment.VoidId, "")
-		if err != nil {
-			return err
-		}
+	resultCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
-		err = r.PaymentIntent.UpdateState(ctx, pi.PaymentRef, event.State)
-		if err != nil {
-			return err
-		}
+	sub := s.notifier.Subscribe(pi.PaymentRef)
+	defer sub.Close()
 
-		pi.Status = event.State
-		pi.CurrentEvent = nil
-
-		return nil
+	err = s.queue.EnqueueCancel(ctx, tasks.CancelPayload{
+		IdempotencyKey: idempotencyKey,
+		IntentId:       pi.Id,
+		PaymentRef:     pi.PaymentRef,
+		StateId:        pi.CurrentEvent.ExternalStateId,
 	})
 	if err != nil {
-		log.Printf("Error creating payment event for state to %v: %s", PaymentStatusCanceled, err)
+		log.Printf("Error enqueuing cancel payment task: %s", err)
 		return PaymentIntent{}, false, ErrInternal
 	}
 
-	err = s.idempotencyService.ReserveKey(ctx, idempotencyKey, requestHash, pi.PaymentRef)
-	if err != nil {
-		log.Printf("Error reserving refunded payment intent: %s", err)
-		return PaymentIntent{}, false, ErrInternal
+	result, err := sub.Wait(resultCtx)
+	if err != nil || result == "" {
+		return pi, false, nil
 	}
+
+	if result != PaymentStatusCanceled {
+		log.Printf("Payment failed for %v: %s", pi.PaymentRef, result)
+		return PaymentIntent{}, false, NewBankDeclinedError(result)
+	}
+
+	pi.Status = result
+	pi.CurrentOp = ""
 
 	return pi, false, nil
 }

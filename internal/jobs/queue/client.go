@@ -10,6 +10,8 @@ import (
 type QueueInterface interface {
 	EnqueueCreate(ctx context.Context, p tasks.CreatePayload) error
 	EnqueueCapture(ctx context.Context, p tasks.CapturePayload) error
+	EnqueueRefund(ctx context.Context, p tasks.RefundPayload) error
+	EnqueueCancel(ctx context.Context, p tasks.CancelPayload) error
 }
 
 type Client struct {
