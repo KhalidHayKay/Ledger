@@ -13,6 +13,8 @@ import (
 func (s *Service) Capture(ctx context.Context,
 	idempotencyKey, requestHash, paymentRef string, amount int,
 ) (PaymentIntent, bool, error) {
+
+	// TODO: return error if payment intent is already captured or cancelled
 	reservedPI, err := s.getReservedIntent(ctx, idempotencyKey, requestHash)
 	if err != nil {
 		return PaymentIntent{}, false, err
